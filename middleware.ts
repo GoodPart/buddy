@@ -59,5 +59,6 @@ export const config = {
         "/about/:path*",
         "/signin",
         "/signup",
+        "/mypage"
     ]
 }

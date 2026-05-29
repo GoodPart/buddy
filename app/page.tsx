@@ -3,14 +3,6 @@
 import { useEffect, useState } from "react";
 import { User } from "./generated/prisma/client";
 
-// const getExp = (exp : number) => {
-//   const now = Date.now();
-//   const remainingSec = exp * 1000 - now;
-//   const seconds = Math.floor(remainingSec / 1000);
-
-//   return seconds;
-// }
-
 const getRemainingSec = (exp: number) => {
   const remainingMs = exp * 1000 - Date.now();
   return Math.max(0, Math.floor(remainingMs / 1000));
@@ -54,7 +46,7 @@ export default function Home() {
 
   return (
     <div className="">
-      hellow {user?.username ||"world"} - {exp !== null && (<span className="text-sm text-gray-500">로그인 유효 시간 {formatTime(remainingSec)} 남음</span>)}
+      hellow {user?.username ||"world"} {exp !== null && ( - <span className="text-sm text-gray-500">로그인 유효 시간 {formatTime(remainingSec)} 남음</span>)}
     </div>
   );
 }
