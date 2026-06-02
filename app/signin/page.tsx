@@ -2,8 +2,9 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-
+import { useAuthStore } from "@/stores";
 export default function Signin() {
+    const signin = useAuthStore((state)=> state.signin);
     const router = useRouter();
     const searchParams = useSearchParams();
     const next = searchParams.get("next") || "/";
@@ -15,22 +16,14 @@ export default function Signin() {
     const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setError("");
-
-        const response = await fetch("/api/auth/signin", {
-            method: "POST",
-            body : JSON.stringify({username, password}),
-            headers: {
-                "Content-Type": "application/json",
-            },
-        })
-        const data = await response.json();
-
-        if(!response.ok) {
-            setError(data.message || "로그인 실패");
+        try {
+            await signin(username, password);
+            router.push(next);
+            router.refresh();
+        } catch (error) {
+            setError((error as {message : string}).message || "로그인 실패");
             return;
         }
-        router.push(next);
-        router.refresh();
     }
     return (
         <div>

@@ -19,4 +19,13 @@ model User {
   username  String   @unique
   password  String   // bcrypt 해시 저장
   createdAt DateTime @default(now())
+  posts     Post[]   // ← 이 줄 추가
+}
+model Post {
+  id        String    @id @default(cuid())
+  title     String
+  content   String
+  authorId  String
+  author    User      @relation(fields: [authorId], references: [id])
+  createdAt DateTime  @default(now())
 }

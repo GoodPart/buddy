@@ -1,34 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useAuthStore } from "@/stores";
 
 
 export default function NavClient() {
-  const [isAuthed, setIsAuthed] = useState<boolean | null>(false);
-  const navLinks = [
-    { href: "/", label: "Home" },
-    { href: "/about", label: "About" },
-    { href: "/signup", label: "Signup" },
-    { href: "/signin", label: "Signin" },
-    { href: "/mypage", label: "Mypage" }
-  ];
-
-  useEffect(() => {
-    fetch("/api/auth/me")
-      .then((res) => setIsAuthed(res.ok))
-      .catch(() => setIsAuthed(false));
-  }, []);
+  const signout = useAuthStore((state)=> state.signout);
+  const isAuthed = useAuthStore((state)=> state.isAuthed);
+  const isLoading = useAuthStore((state)=> state.isLoading);
 
   const handleSignout = () => {
-    fetch("/api/auth/signout", {
-        method: "POST",
-    })
-    .then(() => setIsAuthed(false))
-    .catch(() => setIsAuthed(false));
+    signout();
   }
 
-  if(isAuthed === null) return null;
+  if(isLoading) return null;
 
 
   return (
@@ -36,6 +21,7 @@ export default function NavClient() {
         <Link href="/">Home</Link>
         <Link href="/about">About</Link>
         <Link href="/mypage">Mypage</Link>
+        <Link href="/post/list">Post</Link>
         {!isAuthed ? (
             <>
                 <Link href="/signup">Signup</Link>
