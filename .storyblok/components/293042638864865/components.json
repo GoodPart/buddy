@@ -1,0 +1,490 @@
+[
+  {
+    "name": "bannerItem",
+    "display_name": null,
+    "description": "",
+    "created_at": "2026-06-08T23:35:02.697Z",
+    "updated_at": "2026-06-08T23:36:57.849Z",
+    "id": 185434532653185,
+    "schema": {
+      "title": {
+        "type": "text",
+        "pos": 0,
+        "default_value": "",
+        "id": "RZCOnHOiQbyqgEYynMm64Q"
+      },
+      "subTitle": {
+        "type": "text",
+        "pos": 1,
+        "id": "ru72Stl9TfyPxyH4D_c4WA"
+      },
+      "image": {
+        "type": "asset",
+        "pos": 2,
+        "id": "Qr8NtEYwRNep97l8j_5MOA"
+      }
+    },
+    "image": null,
+    "preview_field": null,
+    "is_root": false,
+    "preview_tmpl": null,
+    "is_nestable": true,
+    "all_presets": [],
+    "preset_id": null,
+    "real_name": "bannerItem",
+    "component_group_uuid": "b72bc9e0-b39a-44ad-8295-6a8703191ce2",
+    "color": null,
+    "icon": null,
+    "internal_tags_list": [],
+    "internal_tag_ids": [],
+    "content_type_asset_preview": null,
+    "metadata": {}
+  },
+  {
+    "name": "bannerList",
+    "display_name": null,
+    "description": "메인 페이지 배너입니다.",
+    "created_at": "2026-06-08T23:30:36.296Z",
+    "updated_at": "2026-06-09T00:38:13.928Z",
+    "id": 185433441474688,
+    "schema": {
+      "sectionTitle": {
+        "type": "text",
+        "pos": 0,
+        "id": "pRsPzdbnQ72CpYizAO84MA"
+      },
+      "bannerItem": {
+        "type": "bloks",
+        "pos": 1,
+        "id": "u8qI3yxuQXq8D4pYcAlv_w",
+        "restrict_type": "",
+        "restrict_components": true,
+        "component_whitelist": [
+          "bannerItem"
+        ],
+        "component_denylist": []
+      }
+    },
+    "image": null,
+    "preview_field": null,
+    "is_root": false,
+    "preview_tmpl": null,
+    "is_nestable": true,
+    "all_presets": [],
+    "preset_id": null,
+    "real_name": "bannerList",
+    "component_group_uuid": "b72bc9e0-b39a-44ad-8295-6a8703191ce2",
+    "color": null,
+    "icon": null,
+    "internal_tags_list": [],
+    "internal_tag_ids": [],
+    "content_type_asset_preview": null,
+    "metadata": {}
+  },
+  {
+    "name": "feature",
+    "display_name": null,
+    "description": null,
+    "created_at": "2026-06-07T23:43:00.345Z",
+    "updated_at": "2026-06-07T23:43:00.345Z",
+    "id": 185082594701962,
+    "schema": {
+      "name": {
+        "type": "text",
+        "id": "95AOZag0TYSgJLI3XGaeCQ"
+      }
+    },
+    "image": null,
+    "preview_field": null,
+    "is_root": false,
+    "preview_tmpl": null,
+    "is_nestable": true,
+    "all_presets": [],
+    "preset_id": null,
+    "real_name": "feature",
+    "component_group_uuid": null,
+    "color": null,
+    "icon": null,
+    "internal_tags_list": [],
+    "internal_tag_ids": [],
+    "content_type_asset_preview": null,
+    "metadata": {}
+  },
+  {
+    "name": "grid",
+    "display_name": null,
+    "description": null,
+    "created_at": "2026-06-07T23:43:00.331Z",
+    "updated_at": "2026-06-07T23:43:00.331Z",
+    "id": 185082594640521,
+    "schema": {
+      "columns": {
+        "type": "bloks",
+        "id": "ewj1UfKsRJqQuiSkyisgKQ"
+      }
+    },
+    "image": null,
+    "preview_field": null,
+    "is_root": false,
+    "preview_tmpl": null,
+    "is_nestable": true,
+    "all_presets": [],
+    "preset_id": null,
+    "real_name": "grid",
+    "component_group_uuid": null,
+    "color": null,
+    "icon": null,
+    "internal_tags_list": [],
+    "internal_tag_ids": [],
+    "content_type_asset_preview": null,
+    "metadata": {}
+  },
+  {
+    "name": "lendingItem",
+    "display_name": null,
+    "description": "",
+    "created_at": "2026-06-09T00:12:31.418Z",
+    "updated_at": "2026-06-09T00:25:01.386Z",
+    "id": 185443743414416,
+    "schema": {
+      "title": {
+        "type": "text",
+        "pos": 0,
+        "id": "BD6UIvWlSsKiiE3zFRCC8A"
+      },
+      "link": {
+        "type": "text",
+        "pos": 1,
+        "id": "YcJsnQ6DQOuO8ul4KPkknQ"
+      },
+      "img": {
+        "type": "asset",
+        "pos": 2,
+        "id": "Fqy9zdshTQiKgUzLCLdi8Q"
+      }
+    },
+    "image": null,
+    "preview_field": null,
+    "is_root": false,
+    "preview_tmpl": null,
+    "is_nestable": true,
+    "all_presets": [],
+    "preset_id": null,
+    "real_name": "lendingItem",
+    "component_group_uuid": "e85acf68-292b-46da-9163-7d9165075c3f",
+    "color": null,
+    "icon": null,
+    "internal_tags_list": [],
+    "internal_tag_ids": [],
+    "content_type_asset_preview": null,
+    "metadata": {}
+  },
+  {
+    "name": "lendingList",
+    "display_name": null,
+    "description": "",
+    "created_at": "2026-06-09T00:12:16.730Z",
+    "updated_at": "2026-06-09T00:39:29.871Z",
+    "id": 185443683252367,
+    "schema": {
+      "sectionTitle": {
+        "type": "text",
+        "pos": 0,
+        "id": "y7jRgkOWQwqP4K6myHX-DQ"
+      },
+      "lendingItem": {
+        "type": "bloks",
+        "pos": 1,
+        "restrict_type": "",
+        "restrict_components": true,
+        "component_whitelist": [
+          "lendingItem"
+        ],
+        "component_denylist": [],
+        "id": "OSaMrb_0S-iSOd9bwIPurQ"
+      }
+    },
+    "image": null,
+    "preview_field": null,
+    "is_root": false,
+    "preview_tmpl": null,
+    "is_nestable": true,
+    "all_presets": [],
+    "preset_id": null,
+    "real_name": "lendingList",
+    "component_group_uuid": "e85acf68-292b-46da-9163-7d9165075c3f",
+    "color": null,
+    "icon": null,
+    "internal_tags_list": [],
+    "internal_tag_ids": [],
+    "content_type_asset_preview": null,
+    "metadata": {}
+  },
+  {
+    "name": "login",
+    "display_name": null,
+    "description": null,
+    "created_at": "2026-06-08T01:48:43.914Z",
+    "updated_at": "2026-06-08T02:19:40.973Z",
+    "id": 185113493156665,
+    "schema": {
+      "id": {
+        "type": "text",
+        "pos": 0,
+        "required": true,
+        "id": "kHkcfa8BRkOdFU3jMitHZg"
+      },
+      "pwd": {
+        "type": "text",
+        "pos": 1,
+        "required": true,
+        "id": "I07q9i5wTzqCzxlnnLBj1Q"
+      },
+      "submit": {
+        "type": "text",
+        "pos": 2,
+        "default_value": "로그인",
+        "id": "KKzCwJgVReG3RmBSRNFn2g"
+      },
+      "title": {
+        "type": "text",
+        "pos": 3,
+        "description": "",
+        "default_value": "로그인 타이틀",
+        "id": "MLb-2Q5RQFiZo7MOugPtww"
+      },
+      "description": {
+        "type": "text",
+        "pos": 4,
+        "default_value": "이곳은 로그인 기능을 사용할 수 있는 페이지입니다",
+        "id": "Asem46t8SyqX8DNPdhChYg"
+      }
+    },
+    "image": null,
+    "preview_field": null,
+    "is_root": false,
+    "preview_tmpl": null,
+    "is_nestable": true,
+    "all_presets": [],
+    "preset_id": null,
+    "real_name": "login",
+    "component_group_uuid": null,
+    "color": null,
+    "icon": null,
+    "internal_tags_list": [],
+    "internal_tag_ids": [],
+    "content_type_asset_preview": null,
+    "metadata": {}
+  },
+  {
+    "name": "page",
+    "display_name": null,
+    "description": null,
+    "created_at": "2026-06-07T23:43:00.303Z",
+    "updated_at": "2026-06-08T01:51:00.709Z",
+    "id": 185082594525831,
+    "schema": {
+      "body": {
+        "type": "bloks",
+        "id": "BntGphHTR-OD-n1HzdOG-Q",
+        "display_name": ""
+      }
+    },
+    "image": null,
+    "preview_field": null,
+    "is_root": true,
+    "preview_tmpl": null,
+    "is_nestable": false,
+    "all_presets": [],
+    "preset_id": null,
+    "real_name": "page",
+    "component_group_uuid": null,
+    "color": null,
+    "icon": null,
+    "internal_tags_list": [],
+    "internal_tag_ids": [],
+    "content_type_asset_preview": null,
+    "metadata": {}
+  },
+  {
+    "name": "product-card",
+    "display_name": null,
+    "description": "개별 상품 정보를 담을 템플릿",
+    "created_at": "2026-06-08T06:12:43.268Z",
+    "updated_at": "2026-06-08T07:47:45.424Z",
+    "id": 185178371151350,
+    "schema": {
+      "name": {
+        "type": "text",
+        "pos": 0,
+        "id": "24A65w1hR3WjYRndNCZ9sQ"
+      },
+      "price": {
+        "type": "number",
+        "pos": 1,
+        "id": "oIDeBugsQIqha2Aani0epQ"
+      },
+      "image": {
+        "type": "asset",
+        "pos": 2,
+        "id": "OyQXv0ItSFSRWcDAFKBnbg"
+      },
+      "sku": {
+        "type": "text",
+        "pos": 3,
+        "id": "lS1fmRTBTA6dg8E57oHOiw"
+      },
+      "badge": {
+        "type": "text",
+        "pos": 4,
+        "id": "5FZnOtpZR_GUWnfZa_165w"
+      }
+    },
+    "image": null,
+    "preview_field": null,
+    "is_root": false,
+    "preview_tmpl": null,
+    "is_nestable": true,
+    "all_presets": [],
+    "preset_id": null,
+    "real_name": "product-card",
+    "component_group_uuid": null,
+    "color": null,
+    "icon": null,
+    "internal_tags_list": [],
+    "internal_tag_ids": [],
+    "content_type_asset_preview": null,
+    "metadata": {}
+  },
+  {
+    "name": "product-list",
+    "display_name": null,
+    "description": "상품 카드들을 리스트 형태로 보여줄 컨테이너",
+    "created_at": "2026-06-08T06:13:40.144Z",
+    "updated_at": "2026-06-08T06:34:26.117Z",
+    "id": 185178604119543,
+    "schema": {
+      "title": {
+        "type": "text",
+        "pos": 0,
+        "id": "8yXoE_bhSfeaSb3TlO1JVA"
+      },
+      "products": {
+        "type": "bloks",
+        "pos": 1,
+        "id": "CiquqsdGQz64MH8Z-yyA_A",
+        "required": false,
+        "restrict_type": "",
+        "restrict_components": true,
+        "component_whitelist": [
+          "product-card"
+        ],
+        "component_denylist": [],
+        "component_group_whitelist": [],
+        "component_group_denylist": [],
+        "component_tag_whitelist": [],
+        "component_tag_denylist": []
+      }
+    },
+    "image": null,
+    "preview_field": null,
+    "is_root": false,
+    "preview_tmpl": null,
+    "is_nestable": true,
+    "all_presets": [],
+    "preset_id": null,
+    "real_name": "product-list",
+    "component_group_uuid": null,
+    "color": null,
+    "icon": null,
+    "internal_tags_list": [],
+    "internal_tag_ids": [],
+    "content_type_asset_preview": null,
+    "metadata": {}
+  },
+  {
+    "name": "signup",
+    "display_name": null,
+    "description": null,
+    "created_at": "2026-06-08T05:48:39.359Z",
+    "updated_at": "2026-06-08T05:49:30.302Z",
+    "id": 185172456903936,
+    "schema": {
+      "id": {
+        "type": "text",
+        "pos": 0,
+        "required": true,
+        "id": "kHkcfa8BRkOdFU3jMitHZg"
+      },
+      "pwd": {
+        "type": "text",
+        "pos": 1,
+        "required": true,
+        "id": "I07q9i5wTzqCzxlnnLBj1Q"
+      },
+      "submit": {
+        "type": "text",
+        "pos": 2,
+        "default_value": "로그인",
+        "id": "KKzCwJgVReG3RmBSRNFn2g"
+      },
+      "title": {
+        "type": "text",
+        "pos": 3,
+        "description": "",
+        "default_value": "로그인 타이틀",
+        "id": "MLb-2Q5RQFiZo7MOugPtww"
+      },
+      "description": {
+        "type": "text",
+        "pos": 4,
+        "default_value": "이곳은 로그인 기능을 사용할 수 있는 페이지입니다",
+        "id": "Asem46t8SyqX8DNPdhChYg"
+      }
+    },
+    "image": null,
+    "preview_field": null,
+    "is_root": false,
+    "preview_tmpl": null,
+    "is_nestable": true,
+    "all_presets": [],
+    "preset_id": null,
+    "real_name": "signup",
+    "component_group_uuid": null,
+    "color": null,
+    "icon": null,
+    "internal_tags_list": [],
+    "internal_tag_ids": [],
+    "content_type_asset_preview": null,
+    "metadata": {}
+  },
+  {
+    "name": "teaser",
+    "display_name": null,
+    "description": null,
+    "created_at": "2026-06-07T23:43:00.317Z",
+    "updated_at": "2026-06-07T23:43:00.317Z",
+    "id": 185082594587272,
+    "schema": {
+      "headline": {
+        "type": "text",
+        "id": "DHQwlQirTzebtKr5i-XF4g"
+      }
+    },
+    "image": null,
+    "preview_field": null,
+    "is_root": false,
+    "preview_tmpl": null,
+    "is_nestable": true,
+    "all_presets": [],
+    "preset_id": null,
+    "real_name": "teaser",
+    "component_group_uuid": null,
+    "color": null,
+    "icon": null,
+    "internal_tags_list": [],
+    "internal_tag_ids": [],
+    "content_type_asset_preview": null,
+    "metadata": {}
+  }
+]

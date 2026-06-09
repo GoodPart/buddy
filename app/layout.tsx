@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import NavClient from "./_components/NavClient";
 import AuthInitializer from "./_components/AuthInitializer";
+import StoryblokProvider from "./_components/storybloks/StoryblokApi";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,16 +28,18 @@ export default function RootLayout({
   
   return (
     <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+    lang="en"
+    className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <AuthInitializer />
-        <NavClient />
-         
-        <div className="p-4 border border-gray-300 rounded-md">
-          {children}
-        </div>
+        <StoryblokProvider>
+          <AuthInitializer />
+          <NavClient />
+          
+          <div className="">
+            {children}
+          </div>
+        </StoryblokProvider>
       </body>
     </html>
   );

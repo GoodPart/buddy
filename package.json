@@ -6,16 +6,21 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "storyblok:pull": "storyblok components pull --space 293042638864865",
+    "storyblok:types": "storyblok types generate --space 293042638864865",
+    "storyblok:sync": "npm run storyblok:pull && npm run storyblok:types"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
+    "@storyblok/react": "^6.1.10",
     "bcrypt": "^6.0.0",
     "jose": "^6.2.3",
     "jsonwebtoken": "^9.0.3",
     "next": "16.2.6",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "swiper": "^12.2.0",
     "zod": "^4.4.3",
     "zustand": "^5.0.14"
   },
@@ -29,6 +34,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "prisma": "^6.19.3",
+    "storyblok": "^4.17.9",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

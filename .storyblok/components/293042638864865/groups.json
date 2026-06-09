@@ -1,0 +1,16 @@
+[
+  {
+    "id": 185433276904522,
+    "name": "banner",
+    "uuid": "b72bc9e0-b39a-44ad-8295-6a8703191ce2",
+    "parent_id": null,
+    "parent_uuid": null
+  },
+  {
+    "id": 185443378627662,
+    "name": "lending brand",
+    "uuid": "e85acf68-292b-46da-9163-7d9165075c3f",
+    "parent_id": null,
+    "parent_uuid": null
+  }
+]

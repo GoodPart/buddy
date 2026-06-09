@@ -14,6 +14,7 @@ type AuthState = {
     isLoading : boolean;
     fetchMe : () => Promise<void>;
     signin : (username : string, password : string) => Promise<void>;
+    signup : (username : string, password : string) => Promise<void>;
     signout : () => Promise<void>;
     reset : () => void;
 };
@@ -64,6 +65,28 @@ export const useAuthStore = create<AuthState>((set) => ({
                 throw new Error(data.message || "로그인 실패");
             }
 
+            set({
+                user : data.user,
+                isAuthed : true,
+                isLoading : false,
+            });
+        } catch {
+            set({isLoading : false});
+            return ;
+        }
+    },
+    signup : async(username : string, password : string) => {
+        set({isLoading : true});
+        try {
+            const res = await fetch("/api/auth/register", {
+                method : "POST",
+                body : JSON.stringify({username, password}),
+            });
+
+            const data = await res.json();
+            if(!res.ok) {
+                throw new Error(data.message || "회원가입 실패");
+            }
             set({
                 user : data.user,
                 isAuthed : true,
