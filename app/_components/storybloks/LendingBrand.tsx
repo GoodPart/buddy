@@ -1,8 +1,8 @@
 import { storyblokEditable, StoryblokServerComponent } from "@storyblok/react/rsc";
 import Link from "next/link";
 export default function LendingBrand({ blok }: { blok: any }) {
-    const {lendingItem} = blok.story.content.body[0];
-    const {sectionTitle} = blok.story.content.body[0];
+    const {lendingItem} = blok;
+    const {sectionTitle} = blok;
     return (
         <div className="lending-brand max-w-[1156px] mx-auto py-8" {...storyblokEditable(blok)}>
             <h2 className="text-2xl font-bold">{sectionTitle}</h2>

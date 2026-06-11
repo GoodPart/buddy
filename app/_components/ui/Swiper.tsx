@@ -25,7 +25,6 @@ type SwiperProps = {
   };
 
 export default function Swiper({ bannerItem }: SwiperProps) {
-    console.log(bannerItem);
     return (
         <SwiperComponent
             className="w-full h-[400px]"

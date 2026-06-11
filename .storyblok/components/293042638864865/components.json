@@ -45,14 +45,9 @@
     "display_name": null,
     "description": "메인 페이지 배너입니다.",
     "created_at": "2026-06-08T23:30:36.296Z",
-    "updated_at": "2026-06-09T00:38:13.928Z",
+    "updated_at": "2026-06-10T01:37:41.523Z",
     "id": 185433441474688,
     "schema": {
-      "sectionTitle": {
-        "type": "text",
-        "pos": 0,
-        "id": "pRsPzdbnQ72CpYizAO84MA"
-      },
       "bannerItem": {
         "type": "bloks",
         "pos": 1,
@@ -74,6 +69,53 @@
     "preset_id": null,
     "real_name": "bannerList",
     "component_group_uuid": "b72bc9e0-b39a-44ad-8295-6a8703191ce2",
+    "color": null,
+    "icon": null,
+    "internal_tags_list": [],
+    "internal_tag_ids": [],
+    "content_type_asset_preview": null,
+    "metadata": {}
+  },
+  {
+    "name": "depth1",
+    "display_name": null,
+    "description": "",
+    "created_at": "2026-06-10T09:24:14.738Z",
+    "updated_at": "2026-06-11T01:17:22.893Z",
+    "id": 185933229017573,
+    "schema": {
+      "title": {
+        "type": "text",
+        "pos": 0,
+        "id": "1iY1XizPQB-8Z3S_QYR0cw"
+      },
+      "subTitle": {
+        "type": "text",
+        "pos": 1,
+        "id": "IUZFvYJMT-yjxoQAc-Zg9g"
+      },
+      "body": {
+        "type": "bloks",
+        "pos": 2,
+        "restrict_type": "",
+        "restrict_components": true,
+        "component_whitelist": [
+          "bannerList",
+          "lendingList"
+        ],
+        "component_denylist": [],
+        "id": "HB33A8PYQHeV4ug8Ld6Kiw"
+      }
+    },
+    "image": null,
+    "preview_field": null,
+    "is_root": false,
+    "preview_tmpl": null,
+    "is_nestable": true,
+    "all_presets": [],
+    "preset_id": null,
+    "real_name": "depth1",
+    "component_group_uuid": null,
     "color": null,
     "icon": null,
     "internal_tags_list": [],
@@ -140,6 +182,38 @@
     "metadata": {}
   },
   {
+    "name": "header",
+    "display_name": null,
+    "description": "",
+    "created_at": "2026-06-11T06:24:49.589Z",
+    "updated_at": "2026-06-11T06:30:23.608Z",
+    "id": 186243029362796,
+    "schema": {
+      "body": {
+        "type": "bloks",
+        "pos": 0,
+        "restrict_type": "",
+        "restrict_components": false,
+        "id": "WAA_rtWWT-u2P1KqlhdsJg"
+      }
+    },
+    "image": null,
+    "preview_field": null,
+    "is_root": true,
+    "preview_tmpl": null,
+    "is_nestable": false,
+    "all_presets": [],
+    "preset_id": null,
+    "real_name": "header",
+    "component_group_uuid": null,
+    "color": null,
+    "icon": null,
+    "internal_tags_list": [],
+    "internal_tag_ids": [],
+    "content_type_asset_preview": null,
+    "metadata": {}
+  },
+  {
     "name": "lendingItem",
     "display_name": null,
     "description": "",
@@ -184,7 +258,7 @@
     "display_name": null,
     "description": "",
     "created_at": "2026-06-09T00:12:16.730Z",
-    "updated_at": "2026-06-09T00:39:29.871Z",
+    "updated_at": "2026-06-11T01:17:09.667Z",
     "id": 185443683252367,
     "schema": {
       "sectionTitle": {
@@ -194,7 +268,7 @@
       },
       "lendingItem": {
         "type": "bloks",
-        "pos": 1,
+        "pos": 2,
         "restrict_type": "",
         "restrict_components": true,
         "component_whitelist": [
@@ -277,17 +351,77 @@
     "metadata": {}
   },
   {
+    "name": "nav-logo",
+    "display_name": null,
+    "description": "네비게이션에 사용될 로고",
+    "created_at": "2026-06-11T06:32:16.869Z",
+    "updated_at": "2026-06-11T06:33:34.938Z",
+    "id": 186244861421728,
+    "schema": {
+      "image": {
+        "type": "asset",
+        "pos": 0,
+        "id": "nJAYb2z1Q9muZBdtP84e6g"
+      }
+    },
+    "image": null,
+    "preview_field": null,
+    "is_root": false,
+    "preview_tmpl": null,
+    "is_nestable": true,
+    "all_presets": [],
+    "preset_id": null,
+    "real_name": "nav-logo",
+    "component_group_uuid": "d952a8ee-ee63-4407-8c7f-f61907f97c6f",
+    "color": null,
+    "icon": null,
+    "internal_tags_list": [],
+    "internal_tag_ids": [],
+    "content_type_asset_preview": null,
+    "metadata": {}
+  },
+  {
+    "name": "nav-menu",
+    "display_name": null,
+    "description": "",
+    "created_at": "2026-06-11T06:32:47.222Z",
+    "updated_at": "2026-06-11T06:33:51.173Z",
+    "id": 186244985747650,
+    "schema": {
+      "links": {
+        "type": "bloks",
+        "pos": 0,
+        "id": "6lqK4Vc6Sn25ScHrt17hiA"
+      }
+    },
+    "image": null,
+    "preview_field": null,
+    "is_root": false,
+    "preview_tmpl": null,
+    "is_nestable": true,
+    "all_presets": [],
+    "preset_id": null,
+    "real_name": "nav-menu",
+    "component_group_uuid": "d952a8ee-ee63-4407-8c7f-f61907f97c6f",
+    "color": null,
+    "icon": null,
+    "internal_tags_list": [],
+    "internal_tag_ids": [],
+    "content_type_asset_preview": null,
+    "metadata": {}
+  },
+  {
     "name": "page",
     "display_name": null,
     "description": null,
-    "created_at": "2026-06-07T23:43:00.303Z",
-    "updated_at": "2026-06-08T01:51:00.709Z",
-    "id": 185082594525831,
+    "created_at": "2026-06-11T04:29:23.329Z",
+    "updated_at": "2026-06-11T04:41:10.769Z",
+    "id": 186214659401643,
     "schema": {
       "body": {
         "type": "bloks",
-        "id": "BntGphHTR-OD-n1HzdOG-Q",
-        "display_name": ""
+        "pos": 0,
+        "id": "wMnQLPFySw6kcv099hDfZw"
       }
     },
     "image": null,
@@ -298,6 +432,42 @@
     "all_presets": [],
     "preset_id": null,
     "real_name": "page",
+    "component_group_uuid": null,
+    "color": null,
+    "icon": null,
+    "internal_tags_list": [],
+    "internal_tag_ids": [],
+    "content_type_asset_preview": null,
+    "metadata": {}
+  },
+  {
+    "name": "product",
+    "display_name": null,
+    "description": null,
+    "created_at": "2026-06-07T23:43:00.303Z",
+    "updated_at": "2026-06-11T04:08:09.559Z",
+    "id": 185082594525831,
+    "schema": {
+      "body": {
+        "type": "bloks",
+        "pos": 0,
+        "restrict_type": "",
+        "restrict_components": true,
+        "component_whitelist": [
+          "product-list"
+        ],
+        "component_denylist": [],
+        "id": "naSMI1JZToySoOpLXYR6jw"
+      }
+    },
+    "image": null,
+    "preview_field": null,
+    "is_root": true,
+    "preview_tmpl": null,
+    "is_nestable": false,
+    "all_presets": [],
+    "preset_id": null,
+    "real_name": "product",
     "component_group_uuid": null,
     "color": null,
     "icon": null,
@@ -361,29 +531,13 @@
     "display_name": null,
     "description": "상품 카드들을 리스트 형태로 보여줄 컨테이너",
     "created_at": "2026-06-08T06:13:40.144Z",
-    "updated_at": "2026-06-08T06:34:26.117Z",
+    "updated_at": "2026-06-11T04:10:39.149Z",
     "id": 185178604119543,
     "schema": {
       "title": {
         "type": "text",
         "pos": 0,
         "id": "8yXoE_bhSfeaSb3TlO1JVA"
-      },
-      "products": {
-        "type": "bloks",
-        "pos": 1,
-        "id": "CiquqsdGQz64MH8Z-yyA_A",
-        "required": false,
-        "restrict_type": "",
-        "restrict_components": true,
-        "component_whitelist": [
-          "product-card"
-        ],
-        "component_denylist": [],
-        "component_group_whitelist": [],
-        "component_group_denylist": [],
-        "component_tag_whitelist": [],
-        "component_tag_denylist": []
       }
     },
     "image": null,

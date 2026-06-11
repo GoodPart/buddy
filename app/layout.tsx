@@ -34,7 +34,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <StoryblokProvider>
           <AuthInitializer />
-          <NavClient />
+          {/* <NavClient /> */}
           
           <div className="">
             {children}

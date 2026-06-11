@@ -1,4 +1,4 @@
-import { storyblokEditable, StoryblokServerComponent } from "@storyblok/react/rsc";
+import { storyblokEditable } from "@storyblok/react/rsc";
 import LatestContentsTabs from "../tabs/TabContent";
 
 export default function LatestContents({ blok }: { blok: any }) {

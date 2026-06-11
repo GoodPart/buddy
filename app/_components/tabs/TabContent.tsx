@@ -29,7 +29,6 @@ function sliceTitle(text: string): ParsedTitle {
 
 export function Card({ item }: { item: any }) {
     const { title, lines } = sliceTitle(item.title);
-    console.log(item._uid);
     return (
         <div className={`card flex flex-col justify-between bg-white ${item._uid === "330a29f3-3cbd-4977-aece-af43152afaad" ? "col-span-2" : ""}`}>
             <a href={item.link} className="text-black">

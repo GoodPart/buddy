@@ -5,10 +5,11 @@
 
 // storyblok
 import { getStoryblokApi } from "@/lib/storyblok";
-import { StoryblokStory } from "@storyblok/react/rsc";
 import Banner from "./_components/storybloks/Banner";
 import LendingBrand from "./_components/storybloks/LendingBrand";
 import LatestContents from "./_components/storybloks/LatestContents";
+import HeaderLogo from "./_components/storybloks/HeaderLogo";
+import Header from "./_components/storybloks/Header";
 const getRemainingSec = (exp: number) => {
   const remainingMs = exp * 1000 - Date.now();
   return Math.max(0, Math.floor(remainingMs / 1000));
@@ -34,10 +35,17 @@ export async function fetchLatestContents() {
   return await storyblokApi.get(`cdn/stories/lending/latest-contents`, { version: 'draft' });
 }
 
+export async function fetchHeader() {
+  const storyblokApi = getStoryblokApi();
+  return await storyblokApi.get(`cdn/stories/global/header`, { version: 'draft' });
+}
+
 export default async function Home() {
   const { data: banner } = await fetchData();
   const { data: lendingBrand } = await fetchLendingBrand();
   const { data: latestContents } = await fetchLatestContents();
+  const { data: header } = await fetchHeader();
+  console.log(header);
   // const [user, setUser] = useState<User | null>(null);
   // const [exp, setExp] = useState(null);
   // const [remainingSec, setRemainingSec] = useState(0);
@@ -70,9 +78,11 @@ export default async function Home() {
 
   return (
     <div className="">
+      {/* <Header blok={header.story.content.body[0]} /> */}
+      {/* <HeaderLogo blok={header.story.content.body[0]} /> */}
       <Banner blok={banner.story.content.body[0]} />
-      <LendingBrand blok={lendingBrand} />
-      <LatestContents blok={latestContents} />
+      {/* <LendingBrand blok={lendingBrand} />
+      <LatestContents blok={latestContents} /> */}
       {/* <StoryblokStory story={data.story} /> */}
       {/* hellow {user?.username ||"world"} {exp !== null && ( - <span className="text-sm text-gray-500">로그인 유효 시간 {formatTime(remainingSec)} 남음</span>)} */}
       hello

@@ -9,7 +9,8 @@
     "lint": "eslint",
     "storyblok:pull": "storyblok components pull --space 293042638864865",
     "storyblok:types": "storyblok types generate --space 293042638864865",
-    "storyblok:sync": "npm run storyblok:pull && npm run storyblok:types"
+    "storyblok:sync": "npm run storyblok:pull && npm run storyblok:types",
+    "storyblok:pull_types-bash" : "bash scripts/storyblok-sync.sh"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
@@ -34,7 +35,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "prisma": "^6.19.3",
-    "storyblok": "^4.17.9",
+    "storyblok": "^4.17.10",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

@@ -11,9 +11,17 @@ export interface BannerItem {
 }
 
 export interface BannerList {
-  sectionTitle?: string;
   bannerItem?: BannerItem[];
   component: "bannerList";
+  _uid: string;
+  [k: string]: unknown;
+}
+
+export interface Depth1 {
+  title?: string;
+  subTitle?: string;
+  body?: (BannerList | LendingList)[];
+  component: "depth1";
   _uid: string;
   [k: string]: unknown;
 }
@@ -29,18 +37,48 @@ export interface Grid {
   columns?: (
     | BannerItem
     | BannerList
+    | Depth1
     | Feature
     | Grid
+    | Header
     | LendingItem
     | LendingList
     | Login
+    | NavLogo
+    | NavMenu
     | Page
+    | Product
     | ProductCard
     | ProductList
     | Signup
     | Teaser
   )[];
   component: "grid";
+  _uid: string;
+  [k: string]: unknown;
+}
+
+export interface Header {
+  body?: (
+    | BannerItem
+    | BannerList
+    | Depth1
+    | Feature
+    | Grid
+    | Header
+    | LendingItem
+    | LendingList
+    | Login
+    | NavLogo
+    | NavMenu
+    | Page
+    | Product
+    | ProductCard
+    | ProductList
+    | Signup
+    | Teaser
+  )[];
+  component: "header";
   _uid: string;
   [k: string]: unknown;
 }
@@ -73,22 +111,66 @@ export interface Login {
   [k: string]: unknown;
 }
 
+export interface NavLogo {
+  image?: StoryblokAsset;
+  component: "nav-logo";
+  _uid: string;
+  [k: string]: unknown;
+}
+
+export interface NavMenu {
+  links?: (
+    | BannerItem
+    | BannerList
+    | Depth1
+    | Feature
+    | Grid
+    | Header
+    | LendingItem
+    | LendingList
+    | Login
+    | NavLogo
+    | NavMenu
+    | Page
+    | Product
+    | ProductCard
+    | ProductList
+    | Signup
+    | Teaser
+  )[];
+  component: "nav-menu";
+  _uid: string;
+  [k: string]: unknown;
+}
+
 export interface Page {
   body?: (
     | BannerItem
     | BannerList
+    | Depth1
     | Feature
     | Grid
+    | Header
     | LendingItem
     | LendingList
     | Login
+    | NavLogo
+    | NavMenu
     | Page
+    | Product
     | ProductCard
     | ProductList
     | Signup
     | Teaser
   )[];
   component: "page";
+  _uid: string;
+  [k: string]: unknown;
+}
+
+export interface Product {
+  body?: ProductList[];
+  component: "product";
   _uid: string;
   [k: string]: unknown;
 }
@@ -106,7 +188,6 @@ export interface ProductCard {
 
 export interface ProductList {
   title?: string;
-  products?: ProductCard[];
   component: "product-list";
   _uid: string;
   [k: string]: unknown;
@@ -130,4 +211,4 @@ export interface Teaser {
   [k: string]: unknown;
 }
 
-export type ContentType = Page;
+export type ContentType = Header | Page | Product;
