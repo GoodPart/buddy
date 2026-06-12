@@ -21,17 +21,36 @@ export async function middleware(request : NextRequest) {
     const isAuthPage = AUTH_PAGES.some((page) => pathname.startsWith(page));
     const isProtectedPage = PROTECTED_PAGES.some((page) => pathname.startsWith(page));
 
+    let response: NextResponse;
+
     // 토큰 없음
     if(!token) {
         // 로그인/회원가입 페이지 허용
-        if(isAuthPage) return NextResponse.next();
+        if(isAuthPage) {
+            response = NextResponse.next();
+            response.headers.set(
+                "Content-Security-Policy",
+                "frame-ancestors 'self' http://localhost:1337"
+            );
+            return response;
+        }
 
         // 보호 페이지는 로그인 페이지로
-        if(isProtectedPage) return NextResponse.redirect(signinUrl(request, pathname));
-        // if(isProtectedPage) return NextResponse.redirect(new URL("/signin", request.url));
-
+        if(isProtectedPage) {
+            response = NextResponse.redirect(signinUrl(request, pathname));
+            response.headers.set(
+                "Content-Security-Policy",
+                "frame-ancestors 'self' http://localhost:1337"
+            );
+            return response;
+        }
         // 인증된 페이지 접근 허용
-        return NextResponse.next()
+        response = NextResponse.next();
+        response.headers.set(
+            "Content-Security-Policy",
+            "frame-ancestors 'self' http://localhost:1337"
+        );
+        return response;
     }
 
     // 토큰 있음
@@ -41,16 +60,30 @@ export async function middleware(request : NextRequest) {
 
         // 로그인/회원가입 페이지는 메인 페이지로
         if(isAuthPage) {
-            // return NextResponse.redirect(new URL("/", request.url));
-            return NextResponse.redirect(signinUrl(request, pathname));
+            response = NextResponse.redirect(signinUrl(request, pathname));
+            response.headers.set(
+                "Content-Security-Policy",
+                "frame-ancestors 'self' http://localhost:1337"
+            );
+            return response;
         }
 
-        return NextResponse.next();
+        response = NextResponse.next();
+        response.headers.set(
+            "Content-Security-Policy",
+            "frame-ancestors 'self' http://localhost:1337"
+        );
+        return response;
     } catch (error) {
         // 토큰 만료 또는 유효하지 않음
         // return NextResponse.redirect(new URL("/signin", request.url));
         const returnPath = isProtectedPage ? pathname : "/";
-        return NextResponse.redirect(signinUrl(request, returnPath));
+        response = NextResponse.redirect(signinUrl(request, returnPath));
+        response.headers.set(
+            "Content-Security-Policy",
+            "frame-ancestors 'self' http://localhost:1337"
+        );
+        return response;
     }
 }
 
@@ -59,6 +92,7 @@ export const config = {
         "/about/:path*",
         "/signin",
         "/signup",
-        "/mypage"
+        "/mypage",
+        "/((?!api|_next/static|_next/image|favicon.ico).*)",
     ]
 }

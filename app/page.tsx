@@ -17,8 +17,19 @@ export default function Home() {
   const [user, setUser] = useState<User | null>(null);
   const [exp, setExp] = useState(null);
   const [remainingSec, setRemainingSec] = useState(0);
-
+  const [strapiData, setStrapiData] = useState([]);
   useEffect(() => {
+
+    const fetchStrapi = async () => {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_STRAPI_API_URL}/api/articles/?populate=*`);
+
+      if(!res.ok) return;
+
+      const data = await res.json();
+      console.log(data)
+      setStrapiData(data.data);
+    }
+
     const fetchUser = async () => {
       const res = await fetch("/api/auth/me");
 
@@ -31,6 +42,7 @@ export default function Home() {
       
     };
     fetchUser();
+    fetchStrapi();
   }, []);
 
   useEffect(() => {
@@ -47,6 +59,24 @@ export default function Home() {
   return (
     <div className="">
       hellow {user?.username ||"world"} {exp !== null && ( - <span className="text-sm text-gray-500">로그인 유효 시간 {formatTime(remainingSec)} 남음</span>)}
+
+      <hr />
+    
+      <h2>strapi data</h2>
+      <ul className="flex gap-2">
+        {strapiData.map((item: any) => (
+          <li key={item.id} className="">
+            <div className="flex flex-col ">
+              <img
+                src={`${process.env.NEXT_PUBLIC_STRAPI_API_URL}${item.cover.url}`}
+                alt={item.cover.alternativeText || item.title}
+                width={300}
+              />
+              {item.title}
+            </div>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
