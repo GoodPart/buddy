@@ -34,12 +34,22 @@ export async function POST(request : Request) {
 
         if(!isPasswordValid) return invalidCredentials();
 
+        // 이메일 인증 안된 경우
+        if(!user.emailVerified) {
+            return NextResponse.json(
+                { message: "이메일 인증이 필요합니다." },
+                { status: 403 }
+            )
+        }
+
         const token = await new SignJWT({userId : user.id})
             .setProtectedHeader({alg : "HS256"})
             .setExpirationTime("1h")
             .sign(new TextEncoder().encode(process.env.JWT_SECRET!));
 
         // const token = jwt.sign({userId : user.id}, process.env.JWT_SECRET!, {expiresIn : "1h"});
+
+        
 
         const response = NextResponse.json(
             { message: "로그인 성공", user : {id : user!.id, username : user!.username}},

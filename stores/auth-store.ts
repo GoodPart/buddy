@@ -71,7 +71,7 @@ export const useAuthStore = create<AuthState>((set) => ({
             });
         } catch {
             set({isLoading : false});
-            return ;
+            throw new Error("로그인 실패");
         }
     },
     signout : async () => {

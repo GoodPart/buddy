@@ -16,6 +16,7 @@ export default function Mypage() {
         <div>
             <h1>Mypage</h1>
             <p>Username: {user?.username}</p>
+            <p>Email: {user?.email}</p>
         </div>
     )
 }
