@@ -1,26 +1,25 @@
 "use client";
-
-import { usePostStore } from "@/stores";
-import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { usePostStore, useAuthStore } from "@/stores";
+import { FormEvent, useEffect, useState } from "react";
 
 export default function PostCreatePage() {
     const createPost = usePostStore((state)=> state.createPost);
+    const user = useAuthStore((state)=> state.user);
     const isLoading = usePostStore((state)=> state.isLoading);
-    const router = useRouter();
     const [title, setTitle] = useState("");
     const [content, setContent] = useState("");
-
+    
+    useEffect(() => {
+        console.log(user);
+    }, [user]);
     const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-
+        
         const res = await createPost(title, content);        
         console.log(res);
-            // router.push("/post/list");
-            // router.refresh();
-        
     }
     if(isLoading) return <div>Loading...</div>;
+    if(!user) return <div>로그인이 필요합니다.</div>;
     return (
         <div>
             <h1>Post Create Page</h1>

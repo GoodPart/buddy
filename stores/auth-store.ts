@@ -16,6 +16,7 @@ type AuthState = {
     signin : (username : string, password : string) => Promise<void>;
     signout : () => Promise<void>;
     reset : () => void;
+    emailCheck : (email : string) => Promise<void>;
 };
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -81,5 +82,27 @@ export const useAuthStore = create<AuthState>((set) => ({
     reset : () => {
         set({user : null, isAuthed : false, isLoading : false});
     },
+    emailCheck : async (email : string) => {
+        set({isLoading : true});
+        try {
+            const res = await fetch("/api/auth/email-check", {
+                method : "POST",
+                body : JSON.stringify({email}),
+                headers : {
+                    "Content-Type" : "application/json",
+                },
+            })
+
+            const data = await res.json();
+            if(!res.ok) {
+                return {success : false, message : data.message || "중복확인 실패"};
+            }
+            set({isLoading : false});
+            return data;
+        } catch {
+            set({isLoading : false});
+            return {success : false, message : "중복확인 실패"};
+        }
+    }
 }))
 

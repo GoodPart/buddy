@@ -5,7 +5,7 @@ import type { NextRequest } from "next/server";
 import {jwtVerify} from "jose";
 
 const AUTH_PAGES = ["/signin", "/signup"];
-const PROTECTED_PAGES = ["/about", "/mypage"];
+const PROTECTED_PAGES = ["/about", "/mypage", "/post/create"];
 
 // 헬퍼 (middleware.ts 상단에 추가)
 function signinUrl(request: NextRequest, returnPath: string) {
@@ -59,6 +59,7 @@ export const config = {
         "/about/:path*",
         "/signin",
         "/signup",
-        "/mypage"
+        "/mypage",
+        "/post/create",
     ]
 }
