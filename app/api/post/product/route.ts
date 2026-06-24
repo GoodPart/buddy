@@ -7,8 +7,14 @@ import { jwtVerify } from "jose";
 export async function GET(request : Request) {
     try {
         const posts = await prisma.post.findMany();
+        const postsWithAuthor = await Promise.all(posts.map(async (post) => {
+            const author = await prisma.user.findUnique({
+                where: { id: post.authorId },
+            });
+            return { ...post, author };
+        }));
         return NextResponse.json({
-            posts : posts,
+            posts : postsWithAuthor,
             message : "정상적으로 게시글이 조회되었습니다.",
         }, {status : 200});
     } catch (error) {
