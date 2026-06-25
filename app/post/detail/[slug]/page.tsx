@@ -231,14 +231,14 @@ export default function PostPage() {
                         )}
                         <p>{createdAt} {createdAtTime}</p>
                         <div className="relative w-[50%] ">
-                            <input className={`w-full border-1 border-gray-600 rounded-md p-2`} type="text"
+                            <input className={`w-full ${isEditing ? "border-1 border-gray-600" : ""} rounded-md p-2`} type="text"
                              value={post.title}
                              onChange={(e) => setPost({...post, title: e.target.value})}
                              disabled={!isEditing}
                             />
                         </div>
                         <div>
-                            <textarea className={`w-full border-1 border-gray-600 rounded-md p-2`}
+                            <textarea className={`w-full ${isEditing ? "border-1 border-gray-600" : ""} rounded-md p-2`}
                              value={post.content}
                              onChange={(e) => setPost({...post, content: e.target.value})}
                              disabled={!isEditing}

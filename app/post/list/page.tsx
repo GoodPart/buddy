@@ -1,7 +1,7 @@
 "use client";
 
 import { usePostStore } from "@/stores";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Post, User } from "../../generated/prisma/client";
 import Link from "next/link";
 import { readPosts } from "@/lib/read-posts";
@@ -11,6 +11,17 @@ const Card = ({post}: {post: Post & {author: User}}) => {
     const createdAtTime = new Date(post.createdAt).toLocaleTimeString();
     const user = post.author.username;
     const isRead = readPosts().includes(post.id);
+    const [commentCount, setCommentCount] = useState(0);
+
+    useEffect( () => {
+        const fetchComments = async () => {
+            const res = await fetch(`/api/post/${post.id}/comments`);
+            const data = await res.json();
+            setCommentCount(data.length);
+        }
+        fetchComments();
+    }, []);
+
     return (
         <div className={`border-1 border-gray-600 rounded-md p-4 ${isRead ? "opacity-50" : ""}`}>
             <Link href={`/post/detail/${post.id}`}>
@@ -30,7 +41,7 @@ const Card = ({post}: {post: Post & {author: User}}) => {
                         like : 4 | unlike : 0
                     </div>
                     <div>
-                        comment : 0
+                        comment : {commentCount}
                     </div>
                 </div>
             </Link>
@@ -40,6 +51,7 @@ const Card = ({post}: {post: Post & {author: User}}) => {
 
 export default function PostListPage() {
     const {posts, isLoading, fetchPosts} = usePostStore();
+    const {comments, isLoading: isCommentLoading, fetchComments} = usePostStore();
 
     useEffect(() => {
         fetchPosts();
