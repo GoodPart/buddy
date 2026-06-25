@@ -1,6 +1,6 @@
 "use client";
 
-import { usePostStore, useAuthStore } from "@/stores";
+import { usePostStore } from "@/stores";
 import { useEffect } from "react";
 import { Post, User } from "../../generated/prisma/client";
 import Link from "next/link";
@@ -21,12 +21,17 @@ const Card = ({post}: {post: Post & {author: User}}) => {
                     </div>
                     <p className="text-sm text-gray-500">{createdAt} {createdAtTime}</p>
                 </div>
-                {/* <div className="mt-2">
-                    like : 4 | unlike : 0
-                </div> */}
                 <div className="mt-4">
                     <p>{post.title}</p>
                     <p className="text-sm text-gray-500">{post.content}</p>
+                </div>
+                <div className="mt-2 flex gap-4">
+                    <div>
+                        like : 4 | unlike : 0
+                    </div>
+                    <div>
+                        comment : 0
+                    </div>
                 </div>
             </Link>
         </div>
@@ -35,8 +40,10 @@ const Card = ({post}: {post: Post & {author: User}}) => {
 
 export default function PostListPage() {
     const {posts, isLoading, fetchPosts} = usePostStore();
+
     useEffect(() => {
         fetchPosts();
+        
     }, [fetchPosts]);
 
     if(isLoading) return <div>Loading...</div>;

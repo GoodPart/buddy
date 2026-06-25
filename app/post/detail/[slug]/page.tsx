@@ -1,9 +1,9 @@
 "use client";
 
 import { useAuthStore } from "@/stores";
-import { Post, User } from "@/app/generated/prisma/client";
+import { Post, PostComment, User } from "@/app/generated/prisma/client";
 import { useParams } from "next/navigation";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, FormEvent } from "react";
 
 import {usePostStore} from "@/stores/post-store";
 import { useRouter } from "next/navigation";
@@ -14,6 +14,8 @@ import { makePostAsRead } from "@/lib/read-posts";
 export default function PostPage() {
     const {slug} = useParams();
     const [post, setPost] = useState<Post & {author: User} | null>(null);
+    const [comments, setComments] = useState<PostComment[]>([]);
+    const [commentValue, setCommentValue] = useState("");
     const {isLoading} = usePostStore();
     const {isLoading: isAuthLoading, user, isAuthed} = useAuthStore();
     const [isEditing, setIsEditing] = useState(false);
@@ -27,7 +29,19 @@ export default function PostPage() {
     
     // 글 작성자인지 확인
     const isAuthor = isAuthed && user?.id === post?.authorId;
-    
+    const isCommentAuthor = (commentId: string) => {
+        console.log('로그인',isAuthed)
+        console.log('로그인 유저 아이디 : ',user?.id)
+        console.log('댓글 id : ',commentId)
+        console.log('댓글 작성자 아이디 : ',comments.find((comment) => comment.id === commentId)?.authorId)
+
+        const confirm = isAuthed && user?.id === comments.find((comment) => comment.id === commentId)?.authorId;
+        console.log('확인 : ',confirm)
+
+        return confirm;
+
+        // return isAuthed && user?.id === comments.find((comment) => comment.id === commentId)?.author?.id
+    };
     useEffect(() => {
         if(slug) {
             makePostAsRead(slug as string);
@@ -41,6 +55,14 @@ export default function PostPage() {
             setPost(data);
         }
         fetchPost();
+
+        const fetchComments = async () => {
+            const res = await fetch(`/api/post/${slug}/comments`);
+            const data = await res.json();
+            console.log(data);
+            setComments(data);
+        }
+        fetchComments();
     }, [slug]);
 
     const handleEdit = () => {
@@ -114,10 +136,52 @@ export default function PostPage() {
             alert(error || "게시글 삭제 실패");
         }
     }
+
+    const handleCommentSubmit = async (e: FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        if(!post) return;
+        try {
+            const res = await fetch(`/api/post/${slug}/comments`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body : JSON.stringify({ content: commentValue }),
+            });
+            const data = await res.json();
+            if(!res.ok) {
+                throw new Error(data.message || "댓글 작성 실패");
+            }
+            setComments([...comments, data.comment]);
+            setCommentValue("");
+        } catch(error) {
+            console.error(error);
+            alert(error || "댓글 작성 실패");
+        }
+    }
+
+    const handleDeleteComment = async (id: string) => {
+        if(!post) return;
+        isCommentAuthor(id)
+        try {
+            const res = await fetch(`/api/post/${slug}/comments`, {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({id}),
+            });
+            
+        } catch(error) {
+            console.error(error);
+            alert(error || "댓글 삭제 실패");
+        }
+    }
+    const createdAtComment = new Date(comments.createdAt || new Date()).toLocaleDateString();
+    const createdAtTimeComment = new Date(comments.createdAt || new Date()).toLocaleTimeString();
+
     if(isLoading) return <div>Loading...</div>;
     if(isAuthLoading) return <div>Loading...</div>;
 
 
+
+    
     return (
         <div className="w-full">
           
@@ -183,6 +247,39 @@ export default function PostPage() {
                     </li>
                 )}
             </ul>
+
+            <hr className="my-4" />
+            <h2>댓글</h2>
+            <form onSubmit={handleCommentSubmit}>
+                <textarea className={`w-full border-1 border-gray-600 rounded-md p-2`}
+                value={commentValue}
+                onChange={(e) => setCommentValue(e.target.value)}
+                />
+                <button className="bg-gray-500 text-white rounded-md p-2" type="submit">댓글 작성</button>
+            </form>  
+
+            <hr className="my-4" />
+
+            <div className="mt-4">
+                <ul>
+                    {
+                        comments.length > 0 ? (
+                            comments.map((comment) => (
+                                <li key={comment.id}>
+                                    <div className="flex items-center justify-between gap-2">
+                                        <button type="button" className={`text-white rounded-md ${isCommentAuthor(comment.id) ? "block" : "hidden"}`} onClick={() => handleDeleteComment(comment.id)}>X</button>
+                                        <p>{comment?.author?.username}</p>
+                                        <p>{comment.content}</p>
+                                        <p>{createdAtComment} {createdAtTimeComment}</p>
+                                    </div>
+                                </li>
+                            ))
+                        ) : (
+                            <li>댓글이 없습니다.</li>
+                        )
+                    }
+                </ul>
+            </div>
         </div>
     )
 }

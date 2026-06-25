@@ -1,6 +1,17 @@
 import { User } from "@/app/generated/prisma/client";
 import {create} from "zustand";
 
+type Comment = {
+    id : string;
+    content : string;
+    authorId : string;
+    author : User;
+    createdAt : Date;
+    parentId : string;
+    parent : Comment;
+    replies : Comment[];
+}
+
 type Post = {
     id : string;
     title : string;
@@ -12,14 +23,18 @@ type Post = {
 
 type PostState = {
     posts : Post[];
+    comments : Comment[];
     isLoading : boolean;
     error : string;
     fetchPosts : () => Promise<void>;
+    fetchComments : (postId : string) => Promise<void>;
     createPost : (title : string, content : string) => Promise<void>;
+    deleteComment : (commentId : string) => Promise<void>;
 }
 
 export const usePostStore = create<PostState>((set) => ({
     posts : [],
+    comments : [],
     isLoading : false,
     error : "",
     fetchPosts : async () => {
@@ -65,5 +80,45 @@ export const usePostStore = create<PostState>((set) => ({
             return ;
         }
 
+    },
+    fetchComments : async (postId : string) => {
+        set({isLoading : true});
+        try {
+            const res = await fetch(`/api/post/${postId}/comments`);
+            const data = await res.json();
+            if(!res.ok) {
+                throw new Error("Failed to fetch comments");
+            }
+            set({comments : data.comments, isLoading : false});
+        }catch {
+            set({comments : [], isLoading : false});
+            set({error : "Failed to fetch comments"});
+            return ;
+        }
+    },
+    deleteComment : async (commentId : string) => {
+        set({isLoading : true});
+        try {
+            const res = await fetch(`/api/post/${commentId}/comments`, {
+                method : "DELETE",
+                headers : {
+                    "Content-Type" : "application/json",
+                },
+                body : JSON.stringify({id : commentId}),
+            });
+            if(!res.ok) {
+                throw new Error("Failed to delete comment");
+            }
+            set((state)=> ({
+                comments : state.comments.filter((comment)=> comment.id !== commentId),
+                isLoading : false,
+            }));
+            return ;
+        } catch(error) {
+            console.error(error);
+            alert(error || "댓글 삭제 실패");
+            set({isLoading : false});
+            return ;
+        }
     }
 }))

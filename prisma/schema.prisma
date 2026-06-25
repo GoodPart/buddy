@@ -24,12 +24,33 @@ model User {
   emailVerificationExpires  DateTime?
   createdAt                 DateTime @default(now())
   posts                     Post[]
+  CommentReplies            PostComment[]
 }
 model Post {
-  id        String    @id @default(cuid())
+  id        String        @id @default(cuid())
   title     String
   content   String
   authorId  String
-  author    User      @relation(fields: [authorId], references: [id])
-  createdAt DateTime  @default(now())
+  author    User          @relation(fields: [authorId], references: [id])
+  createdAt DateTime      @default(now())
+  comment   PostComment[]
+}
+
+model PostComment {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  content   String
+  parentId  String?  // null = 최상위 댓글
+  parent    PostComment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   PostComment[] @relation("CommentReplies")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([postId])
+  @@index([parentId])
 }
