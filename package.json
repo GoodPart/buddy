@@ -6,11 +6,14 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "postinstall": "node scripts/copy-cesium.js"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
+    "@turf/turf": "^7.3.5",
     "bcrypt": "^6.0.0",
+    "cesium": "^1.142.0",
     "jose": "^6.2.3",
     "jsonwebtoken": "^9.0.3",
     "next": "16.2.6",
@@ -21,6 +24,8 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@gltf-transform/cli": "^4.4.0",
+    "@gltf-transform/functions": "^4.4.0",
     "@tailwindcss/postcss": "^4",
     "@types/bcrypt": "^6.0.0",
     "@types/jsonwebtoken": "^9.0.10",
@@ -29,6 +34,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
+    "fbx2gltf": "^0.9.7-p1",
     "prisma": "^6.19.3",
     "tailwindcss": "^4",
     "typescript": "^5"

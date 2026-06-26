@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { interpolateAlongRoute } from "@/lib/tmap/interpolate";
-import type { Place, RouteResponse } from "@/lib/tmap/types";
+import type { Place, RoutePosition, RouteResponse } from "@/lib/tmap/types";
 
 export type SimStatus = "idle" | "ready" | "running" | "paused" | "arrived";
 
@@ -11,7 +11,7 @@ type SimulationState = {
   route: RouteResponse | null;
   progress: number;
   speedMultiplier: 1 | 2 | 5;
-  currentPosition: { lng: number; lat: number } | null;
+  currentPosition: RoutePosition | null;
   pauseCount: number;
   totalPausedMs: number;
   pausedAt: number | null;
@@ -51,10 +51,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       set({ ...initial });
       return;
     }
-    const pos = {
-      lng: route.pathCoordinates[0]?.[0] ?? route.coordinates[0][0],
-      lat: route.pathCoordinates[0]?.[1] ?? route.coordinates[0][1],
-    };
+    const pos: RoutePosition = interpolateAlongRoute(route, 0);
     set({
       route,
       status: "ready",

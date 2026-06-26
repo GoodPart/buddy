@@ -5,8 +5,8 @@ import SimulationLoop from "@/app/_components/tmap/SimulationLoop";
 import RoutePlanner from "@/app/_components/tmap/RoutePlanner";
 import RouteControls from "@/app/_components/tmap/RouteControls";
 
-const TmapCanvas = dynamic(
-  () => import("@/app/_components/tmap/TmapCanvas"),
+const CesiumCanvas = dynamic(
+  () => import("@/app/_components/tmap/CesiumCanvas"),
   {
     ssr: false,
     loading: () => (
@@ -18,7 +18,7 @@ const TmapCanvas = dynamic(
 export default function TmapPage() {
   return (
     <div className="flex flex-col gap-6 max-w-2xl mx-auto p-4">
-      <TmapCanvas />
+      <CesiumCanvas />
       <RoutePlanner />
       <SimulationLoop />
       <RouteControls />

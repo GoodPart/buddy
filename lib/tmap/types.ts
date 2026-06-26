@@ -5,6 +5,13 @@ export type Place = {
   address?: string;
 };
 
+export type RoutePosition = {
+  lng: number;
+  lat: number;
+  /** 진북 기준 시계방향(도) — Turf bearing */
+  bearing: number;
+};
+
 /** Tmap Point feature 기반 턴-by-턴 안내 */
 export type RouteGuidance = {
   index: number;

@@ -1,40 +1,43 @@
-import { buildCumulativeDistances } from "./geo";
-import type { RouteResponse } from "./types";
+import { along, bearing } from "@turf/turf";
+import { buildRouteLine, getRouteCoords, getRouteLengthKm } from "./route-line";
+import type { RoutePosition, RouteResponse } from "./types";
+
+const BEARING_SAMPLE_KM = 0.01;
+
+export type { RoutePosition };
 
 export function interpolateAlongRoute(
   route: RouteResponse,
   progress: number
-): { lng: number; lat: number } {
+): RoutePosition {
   const p = Math.min(1, Math.max(0, progress));
-  const coordinates = route.pathCoordinates.length
-    ? route.pathCoordinates
-    : route.coordinates;
-  const pathDistance =
-    route.pathDistance > 0 ? route.pathDistance : route.totalDistance;
+  const coords = getRouteCoords(route);
+  const totalKm = getRouteLengthKm(route);
 
-  if (coordinates.length === 0) return { lng: 0, lat: 0 };
-  if (p <= 0) return { lng: coordinates[0][0], lat: coordinates[0][1] };
+  if (coords.length === 0) {
+    return { lng: 0, lat: 0, bearing: 0 };
+  }
+  if (totalKm <= 0 || p <= 0) {
+    const [lng, lat] = coords[0];
+    return { lng, lat, bearing: 0 };
+  }
   if (p >= 1) {
-    const last = coordinates[coordinates.length - 1];
-    return { lng: last[0], lat: last[1] };
+    const [lng, lat] = coords[coords.length - 1];
+    const prevKm = Math.max(0, totalKm - BEARING_SAMPLE_KM);
+    const line = buildRouteLine(route);
+    const prevPt = along(line, prevKm, { units: "kilometers" });
+    const endPt = along(line, totalKm, { units: "kilometers" });
+    return { lng, lat, bearing: bearing(prevPt, endPt) };
   }
 
-  const cumulative = buildCumulativeDistances(coordinates);
-  const targetDist = p * pathDistance;
+  const line = buildRouteLine(route);
+  const distKm = p * totalKm;
+  const pt = along(line, distKm, { units: "kilometers" });
+  const [lng, lat] = pt.geometry.coordinates;
 
-  let i = 1;
-  while (i < cumulative.length && cumulative[i] < targetDist) i++;
+  const prevKm = Math.max(0, distKm - BEARING_SAMPLE_KM);
+  const prevPt = along(line, prevKm, { units: "kilometers" });
+  const hdg = bearing(prevPt, pt);
 
-  const segStart = cumulative[i - 1];
-  const segEnd = cumulative[i] ?? segStart;
-  const segLen = segEnd - segStart || 1;
-  const t = (targetDist - segStart) / segLen;
-
-  const [lng1, lat1] = coordinates[i - 1];
-  const [lng2, lat2] = coordinates[i] ?? coordinates[i - 1];
-
-  return {
-    lng: lng1 + (lng2 - lng1) * t,
-    lat: lat1 + (lat2 - lat1) * t,
-  };
+  return { lng, lat, bearing: Number.isFinite(hdg) ? hdg : 0 };
 }

@@ -2,7 +2,6 @@
 
 import { useSimulationStore } from "@/stores";
 import { formatDistance, formatDuration } from "@/lib/tmap/format";
-import { resolveGuidanceAtProgress } from "@/lib/tmap/guidance";
 
 const SPEEDS = [1, 2, 5] as const;
 
@@ -13,7 +12,6 @@ export default function RouteControls() {
   const departure = useSimulationStore((s) => s.departure);
   const destination = useSimulationStore((s) => s.destination);
   const speedMultiplier = useSimulationStore((s) => s.speedMultiplier);
-  const currentPosition = useSimulationStore((s) => s.currentPosition);
   const start = useSimulationStore((s) => s.start);
   const pause = useSimulationStore((s) => s.pause);
   const resume = useSimulationStore((s) => s.resume);
@@ -30,10 +28,6 @@ export default function RouteControls() {
 
   const canControl = status !== "idle";
   const simulatedSec = route.totalTime * progress;
-  const { current: currentGuide, next: nextGuide } = resolveGuidanceAtProgress(
-    route,
-    progress
-  );
 
   return (
     <section className="flex flex-col gap-4 p-4 border border-gray-300 rounded-md">
@@ -44,36 +38,6 @@ export default function RouteControls() {
         <span>예상: {formatDuration(route.totalTime)}</span>
         <span>상태: {status}</span>
       </div>
-
-      {route.guidances.length > 0 && (
-        <div className="rounded-md bg-blue-50 border border-blue-200 p-3 text-sm">
-          <p className="font-medium text-blue-900 mb-1">현재 안내</p>
-          {currentGuide ? (
-            <>
-              <p className="text-blue-800">
-                <span className="inline-block mr-2 px-1.5 py-0.5 rounded bg-blue-200 text-blue-900 text-xs font-medium">
-                  {currentGuide.turnLabel}
-                </span>
-                {currentGuide.description}
-              </p>
-              {nextGuide && status !== "arrived" && (
-                <p className="text-xs text-blue-700 mt-2">
-                  다음: [{nextGuide.turnLabel}] {nextGuide.description}
-                </p>
-              )}
-            </>
-          ) : (
-            <p className="text-blue-800">안내 정보 없음</p>
-          )}
-        </div>
-      )}
-
-      {currentPosition && (
-        <p className="text-sm text-gray-600">
-          현재 위치: {currentPosition.lat.toFixed(5)},{" "}
-          {currentPosition.lng.toFixed(5)}
-        </p>
-      )}
 
       <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
         <div
