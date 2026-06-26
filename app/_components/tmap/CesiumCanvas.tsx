@@ -6,6 +6,11 @@ import type { RoutePosition, RouteResponse } from "@/lib/tmap/types";
 import { getRouteCoords } from "@/lib/tmap/route-line";
 import { loadOsmBuildings } from "@/lib/cesium/buildings";
 import { applyGlobeAppearance } from "@/lib/cesium/globe-style";
+import {
+  clearVWorldBuildings,
+  loadVWorldBuildingsForRoute,
+  setVWorldBuildingsVisible,
+} from "@/lib/cesium/vworld-buildings";
 import type { MapDisplayMode } from "@/lib/cesium/map-mode";
 import { configureCesiumBaseUrl, getCesiumIonToken, isCesiumIonTokenValid } from "@/lib/cesium/setup";
 import { useMapModeStore, useSimulationStore } from "@/stores";
@@ -54,6 +59,36 @@ function clearRouteEntities(viewer: Viewer) {
   for (const id of [ROUTE_ID, START_ID, END_ID, VEHICLE_ID]) {
     removeEntity(viewer, id);
   }
+  clearVWorldBuildings(viewer);
+}
+
+async function loadRouteBuildings(
+  Cesium: CesiumModule,
+  viewer: Viewer,
+  route: RouteResponse,
+  tileset: Cesium3DTileset | null,
+  useVWorldRef: { current: boolean }
+) {
+  useVWorldRef.current = false;
+  if (tileset) tileset.show = true;
+
+  try {
+    const count = await loadVWorldBuildingsForRoute(Cesium, viewer, route);
+    if (count > 0) {
+      useVWorldRef.current = true;
+      if (tileset) tileset.show = false;
+      viewer.scene.globe.depthTestAgainstTerrain = false;
+      if (useMapModeStore.getState().mode === "2d") {
+        setVWorldBuildingsVisible(viewer, false);
+      }
+      viewer.scene.requestRender();
+      return;
+    }
+  } catch (e) {
+    console.warn("VWorld 건물 로드 실패, OSM Buildings 유지:", e);
+  }
+
+  clearVWorldBuildings(viewer);
 }
 
 async function loadCesium(): Promise<CesiumModule> {
@@ -78,10 +113,12 @@ function applyMapMode(
   Cesium: CesiumModule,
   viewer: Viewer,
   mode: MapDisplayMode,
-  tileset: Cesium3DTileset | null
+  tileset: Cesium3DTileset | null,
+  useVWorldBuildings: boolean
 ) {
   if (mode === "2d") {
     if (tileset) tileset.show = false;
+    setVWorldBuildingsVisible(viewer, false);
     viewer.scene.setTerrain(ellipsoidTerrain(Cesium));
     viewer.scene.globe.depthTestAgainstTerrain = false;
     applyGlobeAppearance(Cesium, viewer, "2d");
@@ -91,11 +128,14 @@ function applyMapMode(
 
   if (isCesiumIonTokenValid()) {
     viewer.scene.setTerrain(Cesium.Terrain.fromWorldTerrain());
-    if (tileset) tileset.show = true;
+    if (tileset) tileset.show = !useVWorldBuildings;
   } else if (tileset) {
     tileset.show = false;
   }
-  viewer.scene.globe.depthTestAgainstTerrain = isCesiumIonTokenValid();
+  setVWorldBuildingsVisible(viewer, useVWorldBuildings);
+  // Entity/Primitive extrusion은 지형 depth test와 충돌할 수 있음
+  viewer.scene.globe.depthTestAgainstTerrain =
+    isCesiumIonTokenValid() && !useVWorldBuildings;
   applyGlobeAppearance(Cesium, viewer, "3d");
   viewer.scene.morphTo3D(0.6);
 }
@@ -133,7 +173,7 @@ async function createViewer(
   });
 
   const tileset = await loadOsmBuildings(Cesium, viewer);
-  applyMapMode(Cesium, viewer, initialMode, tileset);
+  applyMapMode(Cesium, viewer, initialMode, tileset, false);
 
   viewer.camera.setView({
     destination: Cesium.Cartesian3.fromDegrees(126.978, 37.5665, 12000),
@@ -356,6 +396,7 @@ export default function CesiumCanvas() {
   const viewerRef = useRef<Viewer | null>(null);
   const cesiumRef = useRef<CesiumModule | null>(null);
   const tilesetRef = useRef<Cesium3DTileset | null>(null);
+  const useVWorldBuildingsRef = useRef(false);
   const mapMode = useMapModeStore((s) => s.mode);
   const simRef = useRef<SimViewState>({
     vehiclePos: null,
@@ -413,7 +454,13 @@ export default function CesiumCanvas() {
     if (!viewer || !Cesium || viewer.isDestroyed()) return;
 
     simRef.current.mapMode = mapMode;
-    applyMapMode(Cesium, viewer, mapMode, tilesetRef.current);
+    applyMapMode(
+      Cesium,
+      viewer,
+      mapMode,
+      tilesetRef.current,
+      useVWorldBuildingsRef.current
+    );
   }, [mapMode, ready]);
 
   useEffect(() => {
@@ -449,6 +496,13 @@ export default function CesiumCanvas() {
           if (!viewerRef.current || viewerRef.current.isDestroyed()) return;
           if (!state.route) {
             clearRouteEntities(viewerRef.current);
+            useVWorldBuildingsRef.current = false;
+            if (tilesetRef.current) {
+              tilesetRef.current.show =
+                simRef.current.mapMode === "3d" && isCesiumIonTokenValid();
+            }
+            viewerRef.current.scene.globe.depthTestAgainstTerrain =
+              simRef.current.mapMode === "3d" && isCesiumIonTokenValid();
             simRef.current = {
               vehiclePos: null,
               followCamera: false,
@@ -459,6 +513,13 @@ export default function CesiumCanvas() {
           }
           try {
             drawRoute(c, viewerRef.current, state.route);
+            void loadRouteBuildings(
+              c,
+              viewerRef.current,
+              state.route,
+              tilesetRef.current,
+              useVWorldBuildingsRef
+            );
           } catch (e) {
             console.warn("경로 표시 실패:", e);
           }

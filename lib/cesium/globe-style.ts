@@ -2,9 +2,6 @@ import type { Viewer } from "cesium";
 
 type CesiumModule = typeof import("cesium");
 
-/** 3D 모드 바닥 단색 */
-export const GROUND_COLOR_3D = "#73777d";
-
 export function applyGlobeAppearance(
   Cesium: CesiumModule,
   viewer: Viewer,
@@ -12,15 +9,9 @@ export function applyGlobeAppearance(
 ) {
   const layers = viewer.imageryLayers;
   for (let i = 0; i < layers.length; i++) {
-    layers.get(i).show = mode === "2d";
-  }
-
-  if (mode === "3d") {
-    viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString(GROUND_COLOR_3D);
-    viewer.scene.globe.enableLighting = false;
-    return;
+    layers.get(i).show = true;
   }
 
   viewer.scene.globe.baseColor = Cesium.Color.WHITE;
-  viewer.scene.globe.enableLighting = true;
+  viewer.scene.globe.enableLighting = mode === "2d";
 }
