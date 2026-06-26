@@ -22,6 +22,7 @@ export default function NavClient() {
         <Link href="/about">About</Link>
         <Link href="/mypage">Mypage</Link>
         <Link href="/post/list">Post</Link>
+        <Link href="/tmap">Tmap</Link>
         {!isAuthed ? (
             <>
                 <Link href="/signup">Signup</Link>
