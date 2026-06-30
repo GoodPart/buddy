@@ -11,12 +11,11 @@ export default function MapModeToggle() {
   const setMode = useMapModeStore((s) => s.setMode);
 
   return (
-    <div className="absolute top-2 right-2 z-10 flex flex-col items-end gap-1">
-      <div
-        className="flex rounded-md border border-gray-600 bg-gray-900/90 p-0.5 shadow-lg"
-        role="group"
-        aria-label="지도 표시 모드"
-      >
+    <div
+      className="flex rounded-md border border-gray-600 bg-gray-900/90 p-0.5 shadow-lg"
+      role="group"
+      aria-label="지도 표시 모드"
+    >
         {MODES.map((m) => {
           const active = mode === m;
           return (
@@ -35,7 +34,6 @@ export default function MapModeToggle() {
             </button>
           );
         })}
-      </div>
     </div>
   );
 }

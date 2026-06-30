@@ -1,7 +1,11 @@
 import { destination } from "@turf/turf";
 import type { RoutePosition } from "@/lib/tmap/types";
 import type { MapDisplayMode } from "./map-mode";
-import type { VWorldMapInstance, VWorldNamespace } from "./global.d";
+import type {
+  VWorldMapInstance,
+  VWorldNamespace,
+  VWorldOlMap,
+} from "./global.d";
 
 export type ChaseCameraOffsets = {
   /** 차량 뒤쪽 거리(m) — 휠 줌 */
@@ -154,14 +158,42 @@ export function resetChaseCameraOffsets(
   Object.assign(offsets, defaults);
 }
 
+function follow2DMap(
+  map2d: VWorldOlMap,
+  pos: RoutePosition,
+  offsets: ChaseCameraOffsets
+) {
+  const ol = (
+    window as unknown as {
+      ol?: { proj: { fromLonLat: (c: number[]) => number[] } };
+    }
+  ).ol;
+  if (!ol) return;
+
+  const baseZoom = 16.5;
+  const zoomDelta = Math.log2(
+    clamp(offsets.heightAboveTerrainM, MIN_HEIGHT_M, MAX_HEIGHT_M) / 8
+  );
+  const zoom = clamp(baseZoom - zoomDelta, 12, 19);
+
+  map2d.getView().setCenter(ol.proj.fromLonLat([pos.lng, pos.lat]));
+  map2d.getView().setZoom(zoom);
+}
+
 export function followChaseCamera(
   vw: VWorldNamespace,
   map: VWorldMapInstance,
+  map2d: VWorldOlMap | null | undefined,
   pos: RoutePosition,
   mapMode: MapDisplayMode,
   offsets: ChaseCameraOffsets
 ) {
   if (mapMode === "2d") {
+    if (map2d) {
+      follow2DMap(map2d, pos, offsets);
+      return;
+    }
+
     const height = FOLLOW_HEIGHT_2D_M + offsets.heightAboveTerrainM * 10;
     if (setCameraView(pos.lng, pos.lat, height, offsets.headingOffsetDeg, -90)) {
       return;

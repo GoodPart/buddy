@@ -114,7 +114,7 @@ async function load3DStack(): Promise<void> {
 }
 
 function isSdkReady(): boolean {
-  return Boolean(window.vw?.CoordZ && window.vw?.Map);
+  return Boolean(window.vw?.CoordZ && window.vw?.Map && window.ol);
 }
 
 export async function loadVWorldSdk(): Promise<VWorldNamespace> {

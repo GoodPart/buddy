@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import SimulationLoop from "@/app/_components/tmap/SimulationLoop";
 import RoutePlanner from "@/app/_components/tmap/RoutePlanner";
 import RouteControls from "@/app/_components/tmap/RouteControls";
+import RecommendDestination from "@/app/_components/tmap/RecommendDestination";
 
 const VWorldCanvas = dynamic(
   () => import("@/app/_components/tmap/VWorldCanvas"),
@@ -19,6 +20,10 @@ export default function TmapPage() {
   return (
     <div className="flex flex-col gap-6 max-w-2xl mx-auto p-4">
       <VWorldCanvas />
+      <section>
+        <h2 className="mb-3 font-semibold">추천 도착지</h2>
+        <RecommendDestination />
+      </section>
       <RoutePlanner />
       <SimulationLoop />
       <RouteControls />

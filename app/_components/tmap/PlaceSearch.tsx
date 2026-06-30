@@ -9,6 +9,7 @@ type Props = {
   onQueryChange: (q: string) => void;
   selected: Place | null;
   onSelect: (place: Place | null) => void;
+  geocode: (query: string) => Promise<Place[]>;
 };
 
 export default function PlaceSearch({
@@ -17,6 +18,7 @@ export default function PlaceSearch({
   onQueryChange,
   selected,
   onSelect,
+  geocode,
 }: Props) {
   const [results, setResults] = useState<Place[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -30,14 +32,7 @@ export default function PlaceSearch({
     onSelect(null);
 
     try {
-      const res = await fetch(
-        `/api/tmap/geocode?q=${encodeURIComponent(query.trim())}`
-      );
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || "검색 실패");
-      }
-      const list: Place[] = data.results ?? [];
+      const list = await geocode(query.trim());
       setResults(list);
       if (list.length === 0) {
         setError("검색 결과가 없습니다.");

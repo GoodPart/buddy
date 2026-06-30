@@ -2,6 +2,7 @@
 declare global {
   interface Window {
     vw?: VWorldNamespace;
+    ol?: unknown;
   }
 }
 
@@ -31,12 +32,32 @@ export interface VWorldMapInstance {
   clear?(): void;
   getLayerElement?(name: string): { show?: () => void; hide?: () => void };
   onClick?: { addEventListener(fn: (...args: unknown[]) => void): void };
+  bottomLogo?: { setVisible?: (v: boolean) => void };
+  navigationZoom?: { setVisible?: (v: boolean) => void };
+}
+
+export interface VWorldOlView {
+  setCenter(center: number[]): void;
+  setZoom(zoom: number): void;
+  getZoom(): number;
+  fit(extent: number[], options?: Record<string, unknown>): void;
+}
+
+export interface VWorldOlMap {
+  addLayer(layer: unknown): void;
+  removeLayer(layer: unknown): void;
+  getView(): VWorldOlView;
+  updateSize(): void;
+  clear?(): void;
 }
 
 export interface VWorldMapController {
-  Map2D?: unknown;
+  Map2D?: VWorldOlMap;
   Map3D?: VWorldMapInstance;
+  mapMode?: string;
   setMode(mode: "2d-map" | "3d-map"): void;
+  moveTo?(): void;
+  updateMapSize?(width: number, height: number): void;
 }
 
 export interface VWorldGeometry {
@@ -61,12 +82,13 @@ export interface VWorldNamespace {
   Collection: new (items: VWorldCoord[]) => unknown;
   MapOptions: new (...args: unknown[]) => unknown;
   Map: new (options: Record<string, unknown>) => VWorldMapInstance;
-  MapController?: new (options: Record<string, unknown>) => VWorldMapController;
+  MapController: new (options: Record<string, unknown>) => VWorldMapController;
   MapControllerOption?: Record<string, unknown>;
   ol3?: {
     BasemapType: { GRAPHIC: unknown };
     DensityType: { EMPTY: unknown; BASIC: unknown };
-    CameraPosition: unknown;
+    CameraPosition: { center: number[] | null; zoom: number; rotation?: number };
+    Map: new (targetId: string, options: Record<string, unknown>) => VWorldOlMap;
   };
   geom?: {
     LineString: new (coords: unknown) => VWorldGeometry & {
