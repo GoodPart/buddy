@@ -28,11 +28,29 @@ export type RouteGuidance = {
   distanceAlongRoute: number;
 };
 
+/** Tmap 교통 혼잡도: 0 정보없음, 1 원활, 2 서행, 3 지체, 4 정체 */
+export type TrafficCongestionLevel = 0 | 1 | 2 | 3 | 4;
+
+/** Tmap LineString 링크 — 교통 반영 통행 속도 포함 */
+export type RouteLinkSegment = {
+  distanceM: number;
+  timeSec: number;
+  /** km/h */
+  speedKmh: number;
+  congestionLevel: TrafficCongestionLevel;
+  distanceStartM: number;
+  distanceEndM: number;
+};
+
 export type RouteResponse = {
   totalDistance: number;
   totalTime: number;
   totalFare?: number;
   taxiFare?: number;
+  /** 전체 평균 통행 속도 (km/h) */
+  averageSpeedKmh: number;
+  /** Tmap 링크 구간별 속도·거리 */
+  linkSegments: RouteLinkSegment[];
   coordinates: [number, number][];
   /** 지도·시뮬레이션 공용 경로 (polyline과 마커가 동일 선상) */
   pathCoordinates: [number, number][];

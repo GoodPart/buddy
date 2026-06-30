@@ -1,12 +1,14 @@
 import { haversineMeters, buildCumulativeDistances } from "./geo";
 import { formatTurnType } from "./guidance";
 import { buildPathCoordinates, computePathDistance } from "./route-path";
-import type { RouteGuidance, RouteResponse } from "./types";
+import { parseTrafficCongestion } from "./traffic-congestion";
+import type { RouteGuidance, RouteLinkSegment, RouteResponse } from "./types";
 
 type FeatureProps = {
   pointType?: string;
   pointIndex?: number;
   index?: number;
+  lineIndex?: number;
   turnType?: number;
   name?: string;
   description?: string;
@@ -15,6 +17,11 @@ type FeatureProps = {
   totalTime?: number;
   totalFare?: number;
   taxiFare?: number;
+  distance?: number;
+  time?: number;
+  speed?: number;
+  congestion?: number;
+  traffic?: string | number[];
 };
 
 type TmapRouteJson = {
@@ -133,6 +140,87 @@ function parseGuidances(
   return raw;
 }
 
+function lineStringLengthM(coords: number[][]): number {
+  let sum = 0;
+  for (let i = 1; i < coords.length; i++) {
+    sum += haversineMeters(
+      [coords[i - 1][0], coords[i - 1][1]],
+      [coords[i][0], coords[i][1]]
+    );
+  }
+  return sum;
+}
+
+function parseLinkSegments(
+  data: TmapRouteJson,
+  pathDistanceM: number
+): RouteLinkSegment[] {
+  const lineFeatures = (data.features ?? [])
+    .filter((f) => f.geometry?.type === "LineString")
+    .sort((a, b) => {
+      const ai = toNum(a.properties?.index) ?? toNum(a.properties?.lineIndex) ?? 0;
+      const bi = toNum(b.properties?.index) ?? toNum(b.properties?.lineIndex) ?? 0;
+      return ai - bi;
+    });
+
+  const raw: RouteLinkSegment[] = [];
+  let cumulative = 0;
+
+  for (const f of lineFeatures) {
+    const coords = f.geometry?.coordinates;
+    if (!Array.isArray(coords) || !coords.length) continue;
+    const lineCoords = Array.isArray(coords[0])
+      ? (coords as number[][])
+      : [coords as number[]];
+
+    const p = f.properties ?? {};
+    let distanceM = toNum(p.distance) ?? Math.round(lineStringLengthM(lineCoords));
+    if (distanceM <= 0) continue;
+
+    const timeSec = toNum(p.time);
+    let speedKmh = toNum(p.speed);
+    if ((!speedKmh || speedKmh <= 0) && timeSec && timeSec > 0) {
+      speedKmh = (distanceM / timeSec) * 3.6;
+    }
+    if (!speedKmh || speedKmh <= 0) {
+      speedKmh = 40;
+    }
+
+    const segTime =
+      timeSec && timeSec > 0 ? timeSec : distanceM / (speedKmh / 3.6);
+
+    const congestionLevel = parseTrafficCongestion(
+      p.traffic ?? p.congestion,
+      speedKmh
+    );
+
+    raw.push({
+      distanceM,
+      timeSec: segTime,
+      speedKmh,
+      congestionLevel,
+      distanceStartM: cumulative,
+      distanceEndM: cumulative + distanceM,
+    });
+    cumulative += distanceM;
+  }
+
+  if (!raw.length || pathDistanceM <= 0) return raw;
+
+  const linkTotal = raw[raw.length - 1].distanceEndM;
+  if (linkTotal <= 0) return raw;
+
+  const scale = pathDistanceM / linkTotal;
+  if (Math.abs(scale - 1) < 0.02) return raw;
+
+  return raw.map((seg) => ({
+    ...seg,
+    distanceStartM: seg.distanceStartM * scale,
+    distanceEndM: seg.distanceEndM * scale,
+    distanceM: seg.distanceM * scale,
+  }));
+}
+
 export function parseTmapRoute(data: TmapRouteJson): RouteResponse {
   const coordinates: [number, number][] = [];
 
@@ -172,12 +260,17 @@ export function parseTmapRoute(data: TmapRouteJson): RouteResponse {
   const pathCoordinates = buildPathCoordinates(coordinates);
   const pathDistance = computePathDistance(pathCoordinates);
   const guidances = parseGuidances(data, pathCoordinates);
+  const linkSegments = parseLinkSegments(data, pathDistance);
+  const averageSpeedKmh =
+    totalTime > 0 ? (totalDistance / totalTime) * 3.6 : 0;
 
   return {
     totalDistance,
     totalTime,
     totalFare: meta.totalFare,
     taxiFare: meta.taxiFare,
+    averageSpeedKmh,
+    linkSegments,
     coordinates,
     pathCoordinates,
     pathDistance,

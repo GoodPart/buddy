@@ -1,5 +1,13 @@
 import { create } from "zustand";
+import { getRoutePathDistanceM } from "@/lib/tmap/guidance";
+import { advanceTraveledM } from "@/lib/tmap/route-speed";
 import { interpolateAlongRoute } from "@/lib/tmap/interpolate";
+import {
+  buildSignalStopsFromGuidances,
+  clampToSignalStop,
+  findSignalStopTrigger,
+  type SignalStop,
+} from "@/lib/tmap/signal-stops";
 import type { Place, RoutePosition, RouteResponse } from "@/lib/tmap/types";
 
 export type SimStatus = "idle" | "ready" | "running" | "paused" | "arrived";
@@ -16,6 +24,12 @@ type SimulationState = {
   totalPausedMs: number;
   pausedAt: number | null;
 
+  /** 1단계: 안내점 기반 신호 정지 */
+  signalStops: SignalStop[];
+  passedSignalStopIds: number[];
+  signalStopRemainingMs: number;
+  activeSignalStop: SignalStop | null;
+
   setDeparture: (p: Place | null) => void;
   setDestination: (p: Place | null) => void;
   setRoute: (route: RouteResponse | null) => void;
@@ -27,17 +41,25 @@ type SimulationState = {
   tick: (deltaMs: number) => void;
 };
 
+const simResetFields = {
+  progress: 0,
+  speedMultiplier: 1 as const,
+  currentPosition: null as RoutePosition | null,
+  pauseCount: 0,
+  totalPausedMs: 0,
+  pausedAt: null as number | null,
+  signalStops: [] as SignalStop[],
+  passedSignalStopIds: [] as number[],
+  signalStopRemainingMs: 0,
+  activeSignalStop: null as SignalStop | null,
+};
+
 const initial = {
   status: "idle" as SimStatus,
   departure: null,
   destination: null,
   route: null,
-  progress: 0,
-  speedMultiplier: 1 as const,
-  currentPosition: null,
-  pauseCount: 0,
-  totalPausedMs: 0,
-  pausedAt: null,
+  ...simResetFields,
 };
 
 export const useSimulationStore = create<SimulationState>((set, get) => ({
@@ -55,11 +77,11 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     set({
       route,
       status: "ready",
-      progress: 0,
+      departure: get().departure,
+      destination: get().destination,
+      ...simResetFields,
       currentPosition: pos,
-      pauseCount: 0,
-      totalPausedMs: 0,
-      pausedAt: null,
+      signalStops: buildSignalStopsFromGuidances(route.guidances),
     });
   },
 
@@ -68,13 +90,24 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
   start: () => {
     const { route, status } = get();
     if (!route || status !== "ready") return;
-    set({ status: "running", pausedAt: null });
+    set({
+      status: "running",
+      pausedAt: null,
+      signalStopRemainingMs: 0,
+      activeSignalStop: null,
+    });
   },
 
   pause: () => {
     const { status } = get();
     if (status !== "running") return;
-    set({ status: "paused", pauseCount: get().pauseCount + 1, pausedAt: Date.now() });
+    set({
+      status: "paused",
+      pauseCount: get().pauseCount + 1,
+      pausedAt: Date.now(),
+      signalStopRemainingMs: 0,
+      activeSignalStop: null,
+    });
   },
 
   resume: () => {
@@ -90,17 +123,82 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
   reset: () => set({ ...initial }),
 
   tick: (deltaMs) => {
-    const { status, route, progress, speedMultiplier } = get();
+    const {
+      status,
+      route,
+      progress,
+      speedMultiplier,
+      signalStopRemainingMs,
+      signalStops,
+      passedSignalStopIds,
+    } = get();
     if (status !== "running" || !route || route.totalTime <= 0) return;
 
-    const deltaProgress = (deltaMs / 1000) * speedMultiplier / route.totalTime;
-    const next = Math.min(1, progress + deltaProgress);
+    const pathDistM = getRoutePathDistanceM(route);
+    if (pathDistM <= 0) return;
+
+    if (signalStopRemainingMs > 0) {
+      const remaining = Math.max(
+        0,
+        signalStopRemainingMs - deltaMs * speedMultiplier
+      );
+      if (remaining > 0) {
+        set({ signalStopRemainingMs: remaining });
+        return;
+      }
+      set({ signalStopRemainingMs: 0, activeSignalStop: null });
+    }
+
+    const traveledM = progress * pathDistM;
+    const nextTraveledM = advanceTraveledM(
+      route,
+      traveledM,
+      deltaMs,
+      speedMultiplier
+    );
+
+    const passedSet = new Set(passedSignalStopIds);
+    const triggered = findSignalStopTrigger(
+      signalStops,
+      passedSet,
+      traveledM,
+      nextTraveledM
+    );
+
+    if (triggered) {
+      const stopM = clampToSignalStop(triggered);
+      const stopProgress = Math.min(1, stopM / pathDistM);
+      set({
+        progress: stopProgress,
+        currentPosition: interpolateAlongRoute(route, stopProgress),
+        signalStopRemainingMs: triggered.waitDurationMs,
+        activeSignalStop: triggered,
+        passedSignalStopIds: [...passedSignalStopIds, triggered.id],
+      });
+      return;
+    }
+
+    const next = nextTraveledM / pathDistM;
     const currentPosition = interpolateAlongRoute(route, next);
 
     if (next >= 1) {
-      set({ progress: 1, currentPosition, status: "arrived" });
+      set({
+        progress: 1,
+        currentPosition,
+        status: "arrived",
+        signalStopRemainingMs: 0,
+        activeSignalStop: null,
+      });
       return;
     }
     set({ progress: next, currentPosition });
   },
 }));
+
+/** 신호 대기 중 (사용자 일시정지와 구분) */
+export function isAtSignalStop(state: {
+  status: SimStatus;
+  signalStopRemainingMs: number;
+}): boolean {
+  return state.status === "running" && state.signalStopRemainingMs > 0;
+}

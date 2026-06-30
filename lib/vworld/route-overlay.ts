@@ -1,6 +1,11 @@
 import type { RouteResponse } from "@/lib/tmap/types";
 import type { RoutePosition } from "@/lib/tmap/types";
 import { getRouteCoords } from "@/lib/tmap/route-line";
+import { sliceCoordsForLinkSegment } from "@/lib/tmap/route-traffic-slice";
+import {
+  congestionToRgb,
+  getCongestionColor,
+} from "@/lib/tmap/traffic-congestion";
 import type { MapDisplayMode } from "./map-mode";
 import type {
   VWorldGeometry,
@@ -23,7 +28,7 @@ type VWorldGeometryInstance = VWorldGeometry & {
 };
 
 type OlNamespace = {
-  Feature: new (opts?: { geometry?: unknown; kind?: string }) => {
+  Feature: new (opts?: Record<string, unknown>) => {
     setGeometry(geometry: unknown): void;
   };
   geom: {
@@ -163,13 +168,30 @@ export class VWorldRouteOverlay {
     const coords = getRouteCoords(route);
     if (coords.length < 2 || !vw.geom?.LineString) return;
 
-    const points = coords.map(([lng, lat]) => new vw.Coord(lng, lat));
-    const line = new vw.geom.LineString(new vw.Collection(points));
-    line.setId?.(ROUTE_ID);
-    line.setFillColor?.(new vw.Color(37, 99, 235, 255));
-    line.setOutLineColor?.(new vw.Color(255, 255, 255, 255));
-    line.setWidth?.(5);
-    this.addStatic(line);
+    if (route.linkSegments.length > 0) {
+      for (let i = 0; i < route.linkSegments.length; i++) {
+        const seg = route.linkSegments[i];
+        const segCoords = sliceCoordsForLinkSegment(route, seg);
+        if (segCoords.length < 2) continue;
+
+        const points = segCoords.map(([lng, lat]) => new vw.Coord(lng, lat));
+        const line = new vw.geom.LineString(new vw.Collection(points));
+        line.setId?.(`${ROUTE_ID}-${i}`);
+        const { r, g, b } = congestionToRgb(seg.congestionLevel);
+        line.setFillColor?.(new vw.Color(r, g, b, 255));
+        line.setOutLineColor?.(new vw.Color(255, 255, 255, 255));
+        line.setWidth?.(5);
+        this.addStatic(line);
+      }
+    } else {
+      const points = coords.map(([lng, lat]) => new vw.Coord(lng, lat));
+      const line = new vw.geom.LineString(new vw.Collection(points));
+      line.setId?.(ROUTE_ID);
+      line.setFillColor?.(new vw.Color(37, 99, 235, 255));
+      line.setOutLineColor?.(new vw.Color(255, 255, 255, 255));
+      line.setWidth?.(5);
+      this.addStatic(line);
+    }
 
     const [startLng, startLat] = coords[0];
     const [endLng, endLat] = coords[coords.length - 1];
@@ -184,18 +206,41 @@ export class VWorldRouteOverlay {
     if (coords.length < 2) return;
 
     const ol = getOl();
-    const projected = coords.map(([lng, lat]) => ol.proj.fromLonLat([lng, lat]));
+    const projectedAll = coords.map(([lng, lat]) => ol.proj.fromLonLat([lng, lat]));
+
+    const lineFeatures: unknown[] = [];
+
+    if (route.linkSegments.length > 0) {
+      for (let i = 0; i < route.linkSegments.length; i++) {
+        const seg = route.linkSegments[i];
+        const segCoords = sliceCoordsForLinkSegment(route, seg);
+        if (segCoords.length < 2) continue;
+        const projected = segCoords.map(([lng, lat]) => ol.proj.fromLonLat([lng, lat]));
+        lineFeatures.push(
+          new ol.Feature({
+            geometry: new ol.geom.LineString(projected),
+            kind: "route-segment",
+            congestion: seg.congestionLevel,
+          })
+        );
+      }
+    } else {
+      lineFeatures.push(
+        new ol.Feature({
+          geometry: new ol.geom.LineString(projectedAll),
+          kind: "route",
+        })
+      );
+    }
 
     const features = [
+      ...lineFeatures,
       new ol.Feature({
-        geometry: new ol.geom.LineString(projected),
-      }),
-      new ol.Feature({
-        geometry: new ol.geom.Point(projected[0]),
+        geometry: new ol.geom.Point(projectedAll[0]),
         kind: "start",
       }),
       new ol.Feature({
-        geometry: new ol.geom.Point(projected[projected.length - 1]),
+        geometry: new ol.geom.Point(projectedAll[projectedAll.length - 1]),
         kind: "end",
       }),
     ];
@@ -203,14 +248,20 @@ export class VWorldRouteOverlay {
     const layer = new ol.layer.Vector({
       source: new ol.source.Vector({ features }),
       style: (feature: {
-        get: (key: string) => string | undefined;
-        getGeometry: () => { getType: () => string };
+        get: (key: string) => string | number | undefined;
       }) => {
         const kind = feature.get("kind");
         if (kind === "start") return pointStyle(ol, "#22c55e");
         if (kind === "end") return pointStyle(ol, "#ef4444");
+
+        const congestion = feature.get("congestion");
+        const color =
+          typeof congestion === "number"
+            ? getCongestionColor(congestion as 0 | 1 | 2 | 3 | 4)
+            : "#2563eb";
+
         return new ol.style.Style({
-          stroke: new ol.style.Stroke({ color: "#2563eb", width: 5 }),
+          stroke: new ol.style.Stroke({ color, width: 5 }),
         });
       },
       zIndex: 100,

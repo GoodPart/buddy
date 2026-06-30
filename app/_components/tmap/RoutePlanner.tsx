@@ -23,7 +23,7 @@ export default function RoutePlanner() {
   const isLocked = status === "running" || status === "paused";
 
   return (
-    <section className="flex flex-col gap-4 p-4 border border-gray-300 rounded-md">
+    <section className="flex flex-col gap-4 p-4 border border-gray-300 rounded-md min-w-[300px] mx-auto">
       <h2 className="font-semibold">경로 설정</h2>
       <PlaceSearch
         label="출발지"

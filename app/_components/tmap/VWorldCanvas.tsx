@@ -30,6 +30,7 @@ import {
 import { useMapModeStore, useSimulationStore } from "@/stores";
 import MapToolbar from "@/app/_components/tmap/MapToolbar";
 import RouteGuidanceOverlay from "@/app/_components/tmap/RouteGuidanceOverlay";
+import RouteControls from "@/app/_components/tmap/RouteControls";
 import "./vworld-map.css";
 
 const MAP_CONTAINER_ID = "vworld-tmap-map";
@@ -373,8 +374,9 @@ export default function VWorldCanvas() {
   }, [ready, syncMyLocationMarker]);
 
   return (
-    <div className="relative isolate w-full h-[400px] rounded-md overflow-hidden border border-gray-300 bg-gray-900 [contain:layout_paint]">
+    <div className="relative isolate w-full h-[500px] rounded-md overflow-hidden border border-gray-300 bg-gray-900 [contain:layout_paint]">
       <MapToolbar mapReady={ready} onLocated={handleMyLocation} />
+      <RouteControls overlay />
       <RouteGuidanceOverlay />
       <div ref={containerRef} className="absolute inset-0 touch-none">
         <div id={MAP_CONTAINER_ID} className="h-full w-full [&_*]:box-border" />
