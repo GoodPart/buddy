@@ -5,6 +5,7 @@ import SimulationLoop from "@/app/_components/tmap/SimulationLoop";
 import RoutePlanner from "@/app/_components/tmap/RoutePlanner";
 import RouteControls from "@/app/_components/tmap/RouteControls";
 import RecommendDestination from "@/app/_components/tmap/RecommendDestination";
+import RadioPlayer from "@/app/_components/tmap/RadioPlayer";
 
 const VWorldCanvas = dynamic(
   () => import("@/app/_components/tmap/VWorldCanvas"),
@@ -25,6 +26,7 @@ export default function TmapPage() {
         <RecommendDestination />
       </section>
       <RoutePlanner />
+      <RadioPlayer />
       <SimulationLoop />
       <RouteControls />
     </div>
