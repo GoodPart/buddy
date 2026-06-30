@@ -1,6 +1,2 @@
-export type MapDisplayMode = "2d" | "3d";
-
-export const MAP_MODE_LABELS: Record<MapDisplayMode, string> = {
-  "2d": "2D 지도",
-  "3d": "3D 지도",
-};
+export type { MapDisplayMode } from "@/lib/vworld/map-mode";
+export { MAP_MODE_LABELS } from "@/lib/vworld/map-mode";

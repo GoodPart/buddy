@@ -1,16 +1,14 @@
 "use client";
 
 import { useMapModeStore } from "@/stores";
-import type { MapDisplayMode } from "@/lib/cesium/map-mode";
-import { MAP_MODE_LABELS } from "@/lib/cesium/map-mode";
-import { getCesiumIonTokenIssue } from "@/lib/cesium/setup";
+import type { MapDisplayMode } from "@/lib/vworld/map-mode";
+import { MAP_MODE_LABELS } from "@/lib/vworld/map-mode";
 
 const MODES: MapDisplayMode[] = ["2d", "3d"];
 
 export default function MapModeToggle() {
   const mode = useMapModeStore((s) => s.mode);
   const setMode = useMapModeStore((s) => s.setMode);
-  const ionIssue = getCesiumIonTokenIssue();
 
   return (
     <div className="absolute top-2 right-2 z-10 flex flex-col items-end gap-1">
@@ -38,11 +36,6 @@ export default function MapModeToggle() {
           );
         })}
       </div>
-      {mode === "3d" && ionIssue && (
-        <p className="max-w-[220px] rounded bg-amber-950/90 px-2 py-1 text-right text-[10px] leading-snug text-amber-200">
-          {ionIssue}
-        </p>
-      )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { MapDisplayMode } from "@/lib/cesium/map-mode";
+import type { MapDisplayMode } from "@/lib/vworld/map-mode";
 
 type MapModeState = {
   mode: MapDisplayMode;

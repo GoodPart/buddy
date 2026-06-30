@@ -1,0 +1,43 @@
+/* VWorld SDK 전역 CSS(vmap23.css 등) 대신 지도 컨테이너 내부만 스코프 */
+#vworld-tmap-map,
+#vworld-tmap-map #map3d,
+#vworld-tmap-map .wsMapContainer {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+#vworld-tmap-map .wsMapContainerContentWrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+#vworld-tmap-map .fullWindow {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+#vworld-tmap-map .cesium-viewer,
+#vworld-tmap-map .cesium-viewer-cesiumWidgetContainer,
+#vworld-tmap-map .cesium-widget {
+  width: 100%;
+  height: 100%;
+}
+
+#vworld-tmap-map .cesium-widget,
+#vworld-tmap-map .cesium-widget canvas {
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
