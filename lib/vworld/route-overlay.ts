@@ -5,7 +5,7 @@ import { getRoutePathDistanceM } from "@/lib/tmap/guidance";
 import { getRouteCoords } from "@/lib/tmap/route-line";
 import type { DrivingSurfaceState } from "./surface-probe";
 import {
-  buildRouteVertexHeights,
+  buildRouteSurfacePath,
   drivingSurfaceHeight,
   resetDrivingSurfaceForRoute,
   ROUTE_SURFACE_Z_BIAS_M,
@@ -219,7 +219,7 @@ export class VWorldRouteOverlay {
     );
     drivingSurfaceHeight.setElevatedSegments(elevatedSegments);
 
-    const routeHeights = buildRouteVertexHeights(coords, elevatedSegments);
+    const fullPath = buildRouteSurfacePath(coords, elevatedSegments);
     const [startLng, startLat] = coords[0];
     const [endLng, endLat] = coords[coords.length - 1];
 
@@ -229,16 +229,24 @@ export class VWorldRouteOverlay {
         const segCoords = sliceCoordsForLinkSegment(route, seg);
         if (segCoords.length < 2) continue;
 
-        const heights = buildRouteVertexHeights(
+        const { coords: lineCoords, heights } = buildRouteSurfacePath(
           segCoords,
           elevatedSegments,
           seg.distanceStartM
         );
         const { r, g, b } = congestionToRgb(seg.congestionLevel);
-        this.addRouteLine3D(vw, `${ROUTE_ID}-${i}`, segCoords, heights, r, g, b);
+        this.addRouteLine3D(vw, `${ROUTE_ID}-${i}`, lineCoords, heights, r, g, b);
       }
     } else {
-      this.addRouteLine3D(vw, ROUTE_ID, coords, routeHeights, 37, 99, 235);
+      this.addRouteLine3D(
+        vw,
+        ROUTE_ID,
+        fullPath.coords,
+        fullPath.heights,
+        37,
+        99,
+        235
+      );
     }
 
     this.addPoint3D(
@@ -246,7 +254,7 @@ export class VWorldRouteOverlay {
       START_ID,
       startLng,
       startLat,
-      routeHeights[0] + ROUTE_SURFACE_Z_BIAS_M,
+      fullPath.heights[0] + ROUTE_SURFACE_Z_BIAS_M,
       0,
       255,
       0
@@ -256,7 +264,7 @@ export class VWorldRouteOverlay {
       END_ID,
       endLng,
       endLat,
-      routeHeights[routeHeights.length - 1] + ROUTE_SURFACE_Z_BIAS_M,
+      fullPath.heights[fullPath.heights.length - 1] + ROUTE_SURFACE_Z_BIAS_M,
       255,
       0,
       0

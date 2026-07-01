@@ -12,6 +12,10 @@
 import type { ElevatedSegment } from "@/lib/tmap/elevated-segments";
 import { lookupElevatedOffsetM } from "@/lib/tmap/elevated-segments";
 import { buildCumulativeDistances } from "@/lib/tmap/geo";
+import {
+  ROUTE_TESSELLATE_MAX_SEGMENT_M,
+  tessellateRouteCoords,
+} from "@/lib/tmap/route-line";
 import { bridgeGisProvider } from "./bridge-gis-layer";
 import {
   drillPickHitsWithMetadata,
@@ -23,7 +27,6 @@ import {
 
 const PROBE_CACHE_MS = 1000;
 const PROBE_GRID_SCALE = 3500;
-const PROBE_MIN_MOVE_DEG = 0.000035;
 
 const ROAD_MESH_MIN_ABOVE_TERRAIN_M = 0.5;
 const ROAD_MESH_MAX_ABOVE_TERRAIN_M = 5;
@@ -37,12 +40,18 @@ export const SURFACE_CLEARANCE_M = 1.2;
 /** 경로 라인 Z-fighting 방지용 미세 오프셋 — 차량 groundHeight와 동일 기준면 */
 export const ROUTE_SURFACE_Z_BIAS_M = 0.2;
 
-const MAX_ASCENT_PER_FRAME_M = 0.1;
-const MAX_DECK_ASCENT_PER_FRAME_M = 2.0;
-const MAX_DESCENT_PER_FRAME_M = 2.5;
-const BRIDGE_SNAP_DELTA_M = 8;
+/** 60fps 기준 프레임당 최대 상승/하강 (m) */
+const MAX_ASCENT_PER_FRAME_M = 0.4;
+const MAX_DECK_ASCENT_PER_FRAME_M = 2.5;
+const MAX_DESCENT_PER_FRAME_M = 3.0;
+const MAX_DECK_DESCENT_PER_FRAME_M = 1.5;
+/** mesh/교량 진입 — 이 이상 차이면 즉시 스냅 */
+const BRIDGE_SNAP_DELTA_M = 6;
 const DECK_EXIT_SNAP_M = 8;
-const HEIGHT_DEAD_ZONE_M = 1.5;
+const HEIGHT_DEAD_ZONE_TERRAIN_M = 0.6;
+const HEIGHT_DEAD_ZONE_DECK_M = 0.25;
+/** probe 재실행 최소 이동 (~1.8m @ lat 37°) — 차량 1m 보간과 정렬 */
+const PROBE_MIN_MOVE_DEG = 0.000016;
 /** deck 모드 유지 — 지면과 이 거리 이상이면 아직 교량 위 */
 const DECK_LATCH_MIN_ABOVE_TERRAIN_M = 5;
 /** hint 구간 진입 후 지형이 이만큼 올랐으면 DEM이 도로 형상을 이미 반영 — hint 생략 */
@@ -384,14 +393,18 @@ function stabilizeHeight(
   const delta = target - previous;
   if (allowSnapUp && Math.abs(delta) >= BRIDGE_SNAP_DELTA_M) return target;
   if (allowSnapDown && delta <= -DECK_EXIT_SNAP_M) return target;
-  if (Math.abs(delta) < HEIGHT_DEAD_ZONE_M) return previous;
+
+  const deadZone = inDeckMode ? HEIGHT_DEAD_ZONE_DECK_M : HEIGHT_DEAD_ZONE_TERRAIN_M;
+  if (Math.abs(delta) < deadZone) return previous;
 
   const maxStep =
     delta > 0
       ? inDeckMode
         ? MAX_DECK_ASCENT_PER_FRAME_M
         : MAX_ASCENT_PER_FRAME_M
-      : MAX_DESCENT_PER_FRAME_M;
+      : inDeckMode
+        ? MAX_DECK_DESCENT_PER_FRAME_M
+        : MAX_DESCENT_PER_FRAME_M;
   if (Math.abs(delta) > maxStep) {
     return previous + Math.sign(delta) * maxStep;
   }
@@ -673,15 +686,38 @@ export const drivingSurfaceHeight = new DrivingSurfaceHeightTracker();
 export function buildRouteVertexHeights(
   coords: [number, number][],
   elevatedSegments: ElevatedSegment[],
-  routeOffsetM = 0
+  routeOffsetM = 0,
+  options?: { maxSegmentM?: number; tessellate?: boolean }
 ): number[] {
   if (coords.length === 0) return [];
+
+  const tessellate = options?.tessellate !== false;
+  const maxSegmentM = options?.maxSegmentM ?? ROUTE_TESSELLATE_MAX_SEGMENT_M;
+  const sampled = tessellate
+    ? tessellateRouteCoords(coords, maxSegmentM)
+    : coords;
+
   const baker = new DrivingSurfaceHeightTracker();
   baker.setElevatedSegments(elevatedSegments);
-  const cumulative = buildCumulativeDistances(coords);
-  return coords.map(([lng, lat], i) =>
+  const cumulative = buildCumulativeDistances(sampled);
+  return sampled.map(([lng, lat], i) =>
     baker.sampleRouteVertex(lng, lat, routeOffsetM + cumulative[i])
   );
+}
+
+/** tessellation + 고도 — 3D 라인 좌표·높이 쌍 반환 */
+export function buildRouteSurfacePath(
+  coords: [number, number][],
+  elevatedSegments: ElevatedSegment[],
+  routeOffsetM = 0,
+  options?: { maxSegmentM?: number }
+): { coords: [number, number][]; heights: number[] } {
+  const maxSegmentM = options?.maxSegmentM ?? ROUTE_TESSELLATE_MAX_SEGMENT_M;
+  const tessellated = tessellateRouteCoords(coords, maxSegmentM);
+  const heights = buildRouteVertexHeights(tessellated, elevatedSegments, routeOffsetM, {
+    tessellate: false,
+  });
+  return { coords: tessellated, heights };
 }
 
 export function clearSurfaceProbeCache(): void {
