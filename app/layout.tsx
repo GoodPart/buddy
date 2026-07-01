@@ -34,7 +34,7 @@ export default function RootLayout({
         <AuthInitializer />
         <NavClient />
          
-        <div className="p-4">
+        <div className="">
           {children}
         </div>
       </body>

@@ -32,6 +32,7 @@ import MapToolbar from "@/app/_components/tmap/MapToolbar";
 import RouteGuidanceOverlay from "@/app/_components/tmap/RouteGuidanceOverlay";
 import RouteControls from "@/app/_components/tmap/RouteControls";
 import "./vworld-map.css";
+import SmartphoneOverlay from "./SmartphoneOverlay";
 
 const MAP_CONTAINER_ID = "vworld-tmap-map";
 
@@ -77,7 +78,10 @@ function toSimViewState(
 ): SimViewState {
   const showVehicle =
     pos != null &&
-    (status === "running" || status === "paused" || status === "arrived");
+    (status === "ready" ||
+      status === "running" ||
+      status === "paused" ||
+      status === "arrived");
 
   return {
     vehiclePos: pos,
@@ -255,6 +259,21 @@ export default function VWorldCanvas() {
       const { status, currentPosition } = useSimulationStore.getState();
       const currentMode = simRef.current.mapMode;
 
+      const showVehicle =
+        currentPosition != null &&
+        (status === "ready" ||
+          status === "running" ||
+          status === "paused" ||
+          status === "arrived");
+
+      overlayRef.current.syncVehicle(
+        vw,
+        map2d,
+        showVehicle ? currentPosition : null,
+        showVehicle,
+        currentMode
+      );
+
       if ((status === "running" || status === "paused") && currentPosition) {
         if (currentMode === "2d" && map2d) {
           followCamera(
@@ -374,10 +393,11 @@ export default function VWorldCanvas() {
   }, [ready, syncMyLocationMarker]);
 
   return (
-    <div className="relative isolate w-full h-[500px] rounded-md overflow-hidden border border-gray-300 bg-gray-900 [contain:layout_paint]">
+    <div className="relative isolate w-full min-h-[calc(100vh)] h-[500px] overflow-hidden bg-gray-900 [contain:layout_paint]">
       <MapToolbar mapReady={ready} onLocated={handleMyLocation} />
       <RouteControls overlay />
       <RouteGuidanceOverlay />
+      <SmartphoneOverlay />
       <div ref={containerRef} className="absolute inset-0 touch-none">
         <div id={MAP_CONTAINER_ID} className="h-full w-full [&_*]:box-border" />
       </div>

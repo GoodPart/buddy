@@ -60,7 +60,7 @@ export default function RadioPlayer() {
   }, []);
 
   return (
-    <section className="flex flex-col gap-3 rounded-md border border-gray-300 p-4">
+    <div className="flex flex-col gap-3 rounded-md border border-gray-300 p-4">
       <div className="flex items-center justify-between gap-2">
         <h2 className="font-semibold">라디오</h2>
         {activeId ? (
@@ -115,6 +115,6 @@ export default function RadioPlayer() {
 
       {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
       <audio ref={audioRef} className="hidden" preload="none" />
-    </section>
+    </div>
   );
 }

@@ -23,7 +23,7 @@ export default function RoutePlanner() {
   const isLocked = status === "running" || status === "paused";
 
   return (
-    <section className="flex flex-col gap-4 p-4 border border-gray-300 rounded-md min-w-[300px] mx-auto">
+    <section className="flex flex-col gap-3 text-black">
       <h2 className="font-semibold">경로 설정</h2>
       <PlaceSearch
         label="출발지"
@@ -43,7 +43,7 @@ export default function RoutePlanner() {
       />
       <button
         type="button"
-        className="bg-blue-600 text-white py-2 rounded-md disabled:opacity-50"
+        className="bg-blue-600 text-white py-2 rounded-md disabled:opacity-50 text-[12px] font-bold"
         onClick={() => void fetchRoute()}
         disabled={isLoading || isLocked}
       >

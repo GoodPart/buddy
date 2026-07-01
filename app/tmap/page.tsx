@@ -2,16 +2,16 @@
 
 import dynamic from "next/dynamic";
 import SimulationLoop from "@/app/_components/tmap/SimulationLoop";
-import RoutePlanner from "@/app/_components/tmap/RoutePlanner";
-import RecommendDestination from "@/app/_components/tmap/RecommendDestination";
-import RadioPlayer from "@/app/_components/tmap/RadioPlayer";
+// import RoutePlanner from "@/app/_components/tmap/RoutePlanner";
+// import RecommendDestination from "@/app/_components/tmap/RecommendDestination";
+// import RadioPlayer from "@/app/_components/tmap/RadioPlayer";
 
 const VWorldCanvas = dynamic(
   () => import("@/app/_components/tmap/VWorldCanvas"),
   {
     ssr: false,
     loading: () => (
-      <div className="w-full h-[500px] rounded-md border border-gray-300 bg-gray-100 animate-pulse" />
+      <div className="w-full h-[500px] bg-gray-100 animate-pulse ratio-16/9" />
     ),
   }
 );
@@ -29,8 +29,8 @@ export default function TmapPage() {
     },
   ]
   return (
-    <div className="flex flex-col gap-6 max-w-5xl mx-auto p-4">
-      <div>
+    <div className="flex flex-col">
+      {/* <div>
         <h2>탑승자</h2>
         <div>
           <ul className="flex gap-4">
@@ -46,16 +46,16 @@ export default function TmapPage() {
             }
           </ul>
         </div>
-      </div>
+      </div> */}
       <VWorldCanvas />
-      <section>
-        <h2 className="mb-3 font-semibold">추천 도착지</h2>
-        <RecommendDestination />
-      </section>
-      <div className="flex gap-4">
-        <RoutePlanner />
-        <RadioPlayer />
-      </div>
+      {/* <section> */}
+        {/* <h2 className="mb-3 font-semibold">추천 도착지</h2> */}
+        {/* <RecommendDestination /> */}
+      {/* </section> */}
+      {/* <div className="flex gap-4"> */}
+        {/* <RoutePlanner /> */}
+        {/* <RadioPlayer /> */}
+      {/* </div> */}
       <SimulationLoop />
     </div>
   );

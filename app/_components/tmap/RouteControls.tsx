@@ -2,10 +2,39 @@
 
 import { isAtSignalStop, useSimulationStore } from "@/stores";
 import { formatDistance, formatDuration } from "@/lib/tmap/format";
-import { getRoutePathDistanceM } from "@/lib/tmap/guidance";
+import {
+  getGuidanceListItemState,
+  getRoutePathDistanceM,
+  resolveGuidanceAtProgress,
+  type GuidanceListItemState,
+} from "@/lib/tmap/guidance";
 import { getAverageSpeedKmh, getSimSpeedKmh } from "@/lib/tmap/route-speed";
 
 const SPEEDS = [1, 2, 5] as const;
+
+const GUIDANCE_ITEM_CLASS: Record<
+  GuidanceListItemState,
+  { default: string; overlay: string }
+> = {
+  passed: {
+    default: "text-gray-400 opacity-60",
+    overlay: "text-gray-500 opacity-50",
+  },
+  active: {
+    default:
+      "-ml-2 border-l-2 border-blue-500 bg-blue-50 pl-2 font-medium text-blue-900",
+    overlay:
+      "-ml-2 border-l-2 border-blue-400 bg-blue-500/15 pl-2 font-medium text-white",
+  },
+  upcoming: {
+    default: "text-gray-700",
+    overlay: "text-gray-300",
+  },
+};
+
+function guidanceItemClass(state: GuidanceListItemState, overlay: boolean) {
+  return GUIDANCE_ITEM_CLASS[state][overlay ? "overlay" : "default"];
+}
 
 const STATUS_LABEL: Record<string, string> = {
   idle: "대기",
@@ -55,6 +84,8 @@ export default function RouteControls({ overlay = false }: RouteControlsProps) {
       : 0;
   const avgSpeedKmh = Math.round(getAverageSpeedKmh(route));
 
+  const nav = resolveGuidanceAtProgress(route, progress);
+
   const statusLabel = atSignal
     ? "신호 대기"
     : STATUS_LABEL[status] ?? status;
@@ -98,13 +129,13 @@ export default function RouteControls({ overlay = false }: RouteControlsProps) {
         <span>{departure?.name ?? "-"} → {destination?.name ?? "-"}</span>
         <span>{formatDistance(route.totalDistance)}</span>
         <span>{formatDuration(route.totalTime)}</span>
-        <span>{statusLabel}</span>
-        {status === "ready" && avgSpeedKmh > 0 ? (
+        {/* <span>{statusLabel}</span> */}
+        {/* {status === "ready" && avgSpeedKmh > 0 ? (
           <span>평균 {avgSpeedKmh} km/h</span>
-        ) : null}
-        {isRunning && currentSpeedKmh > 0 ? (
+        ) : null} */}
+        {/* {isRunning && currentSpeedKmh > 0 ? (
           <span>{currentSpeedKmh} km/h</span>
-        ) : null}
+        ) : null} */}
       </div>
 
       {isRunning && (
@@ -116,33 +147,40 @@ export default function RouteControls({ overlay = false }: RouteControlsProps) {
             />
           </div>
           <p className={progressHintClass}>
-            {Math.round(progress * 100)}% · {formatDuration(simulatedSec)} /{" "}
+            {/* {Math.round(progress * 100)}% · */}
+            {formatDuration(simulatedSec)} /{" "}
             {formatDuration(route.totalTime)}
           </p>
         </>
       )}
 
-      {/* {!overlay && route.guidances.length > 0 && (
+      {!overlay && route.guidances.length > 0 && (
         <details className="text-sm">
           <summary className="cursor-pointer text-gray-700 font-medium">
             전체 경로 안내 ({route.guidances.length}개)
           </summary>
-          <ol className="mt-2 max-h-48 overflow-y-auto space-y-2 pl-4 list-decimal text-gray-700">
-            {route.guidances.map((g) => (
-              <li key={`${g.index}-${g.lng}-${g.lat}`}>
-                <span className="text-xs font-medium text-gray-500 mr-1">
-                  [{g.turnLabel}]
-                </span>
-                {g.name ? `${g.name} · ` : ""}
-                {g.description}
-                {g.nextRoadName ? (
-                  <span className="text-xs text-gray-500">
-                    {" "}
-                    → {g.nextRoadName}
+          <ol className="mt-2 max-h-48 overflow-y-auto space-y-2 pl-4 list-decimal ">
+            {route.guidances.map((g) => {
+              const itemState = getGuidanceListItemState(g, nav, status);
+              return (
+                <li
+                  key={`${g.index}-${g.lng}-${g.lat}`}
+                  className={`rounded-sm transition-colors ${guidanceItemClass(itemState, false)}`}
+                >
+                  <span className="text-xs font-medium text-gray-500 mr-1">
+                    [{g.turnLabel}]
                   </span>
-                ) : null}
-              </li>
-            ))}
+                  {g.name ? `${g.name} · ` : ""}
+                  {g.description}
+                  {g.nextRoadName ? (
+                    <span className="text-xs text-gray-500">
+                      {" "}
+                      → {g.nextRoadName}
+                    </span>
+                  ) : null}
+                </li>
+              );
+            })}
           </ol>
         </details>
       )}
@@ -152,18 +190,24 @@ export default function RouteControls({ overlay = false }: RouteControlsProps) {
           <summary className="cursor-pointer font-medium text-gray-200">
             전체 안내 ({route.guidances.length})
           </summary>
-          <ol className="mt-2 max-h-28 overflow-y-auto space-y-1.5 pl-4 list-decimal text-gray-300">
-            {route.guidances.map((g) => (
-              <li key={`${g.index}-${g.lng}-${g.lat}`}>
-                <span className="text-[10px] text-gray-500 mr-1">
-                  [{g.turnLabel}]
-                </span>
-                {g.description}
-              </li>
-            ))}
+          <ol className="mt-2 max-h-60 overflow-y-auto space-y-1.5 pl-4 list-decimal">
+            {route.guidances.map((g) => {
+              const itemState = getGuidanceListItemState(g, nav, status);
+              return (
+                <li
+                  key={`${g.index}-${g.lng}-${g.lat}`}
+                  className={`rounded-sm transition-colors ${guidanceItemClass(itemState, true)}`}
+                >
+                  <span className="text-[10px] text-gray-500 mr-1">
+                    [{g.turnLabel}]
+                  </span>
+                  {g.description}
+                </li>
+              );
+            })}
           </ol>
         </details>
-      )} */}
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex gap-1.5">
@@ -195,7 +239,7 @@ export default function RouteControls({ overlay = false }: RouteControlsProps) {
             className="rounded-md bg-yellow-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-yellow-500"
             onClick={pause}
           >
-            일시정지
+            정지
           </button>
         )}
         {status === "paused" && (
@@ -204,7 +248,7 @@ export default function RouteControls({ overlay = false }: RouteControlsProps) {
             className="rounded-md bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-500"
             onClick={resume}
           >
-            재개
+            출발
           </button>
         )}
         {status === "arrived" && (
@@ -225,7 +269,7 @@ export default function RouteControls({ overlay = false }: RouteControlsProps) {
 
   if (overlay) {
     return (
-      <div className="absolute bottom-2 right-2 z-10 max-w-xs sm:max-w-sm pointer-events-auto">
+      <div className="absolute top-55 left-2 z-10 max-w-xs sm:max-w-sm pointer-events-auto">
         {content}
       </div>
     );

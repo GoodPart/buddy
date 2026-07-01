@@ -180,6 +180,37 @@ export function resolveGuidanceAtProgress(
   return resolveGuidanceAtDistance(route, traveledM);
 }
 
+export type GuidanceListItemState = "passed" | "active" | "upcoming";
+
+/** 전체 안내 리스트 항목 상태 — 지남 / 진행중 / 대기 */
+export function getGuidanceListItemState(
+  guidance: RouteGuidance,
+  nav: NavGuidanceState,
+  status: "idle" | "ready" | "running" | "paused" | "arrived"
+): GuidanceListItemState {
+  if (status === "arrived") return "passed";
+
+  const { upcoming } = nav;
+  if (!upcoming) return "upcoming";
+
+  if (guidance.turnType === 200 && status !== "idle") return "passed";
+
+  if (status === "idle" || status === "ready") {
+    return guidance.index === upcoming.index ? "active" : "upcoming";
+  }
+
+  if (guidance.index === upcoming.index) return "active";
+
+  if (
+    guidance.distanceAlongRoute <
+    upcoming.distanceAlongRoute - PASSED_MANEUVER_M
+  ) {
+    return "passed";
+  }
+
+  return "upcoming";
+}
+
 export function formatNavDistance(meters: number): string {
   const m = Math.max(0, Math.round(meters));
   if (m >= 1000) return `${(m / 1000).toFixed(1)}km`;

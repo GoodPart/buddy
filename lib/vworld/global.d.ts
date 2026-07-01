@@ -101,6 +101,17 @@ export interface VWorldNamespace {
       setFillColor(c: unknown): void;
       setOutLineColor(c: unknown): void;
     };
+    ModelZ: new (
+      id: string,
+      url: string,
+      coord: VWorldCoordZ,
+      options?: Record<string, unknown>
+    ) => VWorldGeometry & {
+      setCoordz(coord: VWorldCoordZ): void;
+      setOptions(opts: Record<string, unknown>): void;
+      setDistanceFromTerrain(height: number): void;
+      redraw(): void;
+    };
   };
 }
 

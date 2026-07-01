@@ -6,6 +6,10 @@ import {
   congestionToRgb,
   getCongestionColor,
 } from "@/lib/tmap/traffic-congestion";
+import {
+  VehicleModelOverlay,
+  vehicleIconStyle,
+} from "./vehicle-model-overlay";
 import type { MapDisplayMode } from "./map-mode";
 import type {
   VWorldGeometry,
@@ -40,6 +44,7 @@ type OlNamespace = {
   style: {
     Style: new (opts: Record<string, unknown>) => unknown;
     Circle: new (opts: Record<string, unknown>) => unknown;
+    Icon: new (opts: Record<string, unknown>) => unknown;
     Fill: new (opts: { color: string }) => unknown;
     Stroke: new (opts: { color: string; width: number }) => unknown;
   };
@@ -105,23 +110,22 @@ function pointStyle(ol: OlNamespace, color: string, radius = 8) {
 
 export class VWorldRouteOverlay {
   private staticGeometries: VWorldGeometryInstance[] = [];
-  private vehicleGeometry: VWorldGeometryInstance | null = null;
+  private vehicleModelOverlay = new VehicleModelOverlay();
   private olRouteLayer: OlVectorLayer | null = null;
   private olVehicleLayer: OlVectorLayer | null = null;
-  private olVehicleFeature: { setGeometry(geometry: unknown): void } | null =
-    null;
+  private olVehicleFeature: {
+    setGeometry(geometry: unknown): void;
+    setStyle(style: unknown): void;
+  } | null = null;
 
-  clear3D(map: VWorldMapInstance) {
-    for (const geometry of [...this.staticGeometries, this.vehicleGeometry]) {
+  clear3D(map: VWorldMapInstance, opts?: { preserveVehicle?: boolean }) {
+    for (const geometry of this.staticGeometries) {
       removeGeometry(geometry);
     }
     this.staticGeometries = [];
-    this.vehicleGeometry = null;
 
-    try {
-      map.clear?.();
-    } catch {
-      /* ignore */
+    if (!opts?.preserveVehicle) {
+      this.vehicleModelOverlay.clear();
     }
   }
 
@@ -163,7 +167,7 @@ export class VWorldRouteOverlay {
   }
 
   drawRoute3D(vw: VWorldNamespace, map: VWorldMapInstance, route: RouteResponse) {
-    this.clear3D(map);
+    this.clear3D(map, { preserveVehicle: true });
 
     const coords = getRouteCoords(route);
     if (coords.length < 2 || !vw.geom?.LineString) return;
@@ -306,17 +310,7 @@ export class VWorldRouteOverlay {
   }
 
   syncVehicle3D(vw: VWorldNamespace, pos: RoutePosition | null, show: boolean) {
-    removeGeometry(this.vehicleGeometry);
-    this.vehicleGeometry = null;
-
-    if (!show || !pos || !vw.geom?.PointZ) return;
-
-    const vehicle = new vw.geom.PointZ(new vw.CoordZ(pos.lng, pos.lat, 12));
-    vehicle.setId?.(VEHICLE_ID);
-    vehicle.setFillColor?.(new vw.Color(29, 78, 216, 255));
-    vehicle.setOutLineColor?.(new vw.Color(255, 255, 255, 255));
-    vehicle.create();
-    this.vehicleGeometry = vehicle;
+    this.vehicleModelOverlay.sync(vw, pos, show);
   }
 
   syncVehicle2D(
@@ -339,14 +333,18 @@ export class VWorldRouteOverlay {
 
     const ol = getOl();
     const coord = ol.proj.fromLonLat([pos.lng, pos.lat]);
+    const style = vehicleIconStyle(ol, pos.bearing);
 
     if (!this.olVehicleFeature) {
       this.olVehicleFeature = new ol.Feature({
         geometry: new ol.geom.Point(coord),
-      });
+      }) as {
+        setGeometry(geometry: unknown): void;
+        setStyle(style: unknown): void;
+      };
+      this.olVehicleFeature.setStyle(style);
       const layer = new ol.layer.Vector({
         source: new ol.source.Vector({ features: [this.olVehicleFeature] }),
-        style: pointStyle(ol, "#1d4ed8", 9),
         zIndex: 110,
       });
       layer.set?.("id", VEHICLE_ID);
@@ -356,6 +354,7 @@ export class VWorldRouteOverlay {
     }
 
     this.olVehicleFeature.setGeometry(new ol.geom.Point(coord));
+    this.olVehicleFeature.setStyle(style);
   }
 
   syncVehicle(
@@ -366,9 +365,11 @@ export class VWorldRouteOverlay {
     mode: MapDisplayMode
   ) {
     if (mode === "2d") {
+      this.vehicleModelOverlay.sync(vw, null, false);
       if (map2d) this.syncVehicle2D(map2d, pos, show);
       return;
     }
+    if (map2d) this.syncVehicle2D(map2d, null, false);
     this.syncVehicle3D(vw, pos, show);
   }
 

@@ -45,12 +45,12 @@ export default function PlaceSearch({
   };
 
   return (
-    <div className="flex flex-col gap-2">
-      <label className="text-sm font-medium">{label}</label>
-      <div className="flex gap-2">
+    <div className="flex flex-col gap-1">
+      <label className="text-[12px] font-medium">{label}</label>
+      <div className="flex gap-2 h-8">
         <input
           type="text"
-          className="flex-1 border border-gray-400 rounded-md px-3 py-2"
+          className="flex-1 border border-gray-400 rounded-md px-3 placeholder:text-[12px] text-[12px]"
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSearch()}
@@ -58,7 +58,7 @@ export default function PlaceSearch({
         />
         <button
           type="button"
-          className="bg-gray-700 text-white px-3 py-2 rounded-md disabled:opacity-50"
+          className="bg-gray-700 text-white px-3 rounded-md disabled:opacity-50 text-[10px]"
           onClick={handleSearch}
           disabled={isSearching}
         >
