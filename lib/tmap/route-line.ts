@@ -1,6 +1,5 @@
-import { length, lineString } from "@turf/turf";
+import { along, length, lineString } from "@turf/turf";
 import type { RouteResponse } from "./types";
-import { haversineMeters } from "./geo";
 
 export function getRouteCoords(route: RouteResponse): [number, number][] {
   return route.pathCoordinates.length > 0
@@ -22,8 +21,8 @@ export function getRouteLengthKm(route: RouteResponse): number {
 export const ROUTE_TESSELLATE_MAX_SEGMENT_M = 50;
 
 /**
- * 경로 polyline tessellation.
- * maxSegmentM보다 긴 구간을 등간격으로 쪼갠다 (차량 1m 보간과 probe 정렬).
+ * 경로 polyline tessellation — Turf `along`으로 polyline을 따라 샘플링.
+ * lat/lng 직선 보간은 코너·건물 구역을 가로지를 수 있음.
  */
 export function tessellateRouteCoords(
   coords: [number, number][],
@@ -31,24 +30,21 @@ export function tessellateRouteCoords(
 ): [number, number][] {
   if (coords.length < 2 || maxSegmentM <= 0) return coords;
 
-  const out: [number, number][] = [coords[0]];
-  for (let i = 1; i < coords.length; i++) {
-    const prev = coords[i - 1];
-    const cur = coords[i];
-    const segM = haversineMeters(prev, cur);
-    if (segM <= maxSegmentM) {
-      out.push(cur);
-      continue;
-    }
+  const line = lineString(coords);
+  const totalM = length(line, { units: "meters" });
+  if (totalM <= maxSegmentM) return coords;
 
-    const steps = Math.ceil(segM / maxSegmentM);
-    for (let s = 1; s <= steps; s++) {
-      const t = s / steps;
-      out.push([
-        prev[0] + (cur[0] - prev[0]) * t,
-        prev[1] + (cur[1] - prev[1]) * t,
-      ]);
-    }
+  const out: [number, number][] = [];
+  for (let d = 0; d < totalM; d += maxSegmentM) {
+    const pt = along(line, d / 1000, { units: "kilometers" });
+    out.push(pt.geometry.coordinates as [number, number]);
   }
+
+  const last = coords[coords.length - 1];
+  const tail = out[out.length - 1];
+  if (!tail || tail[0] !== last[0] || tail[1] !== last[1]) {
+    out.push(last);
+  }
+  out[0] = coords[0];
   return out;
 }

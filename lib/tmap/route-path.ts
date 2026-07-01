@@ -28,7 +28,6 @@ export function buildPathCoordinates(
   coords: [number, number][]
 ): [number, number][] {
   if (coords.length <= 2) return coords;
-  if (coords.length <= MAX_PATH_POINTS) return [...coords];
 
   const result: [number, number][] = [coords[0]];
   let sinceLastSample = 0;
