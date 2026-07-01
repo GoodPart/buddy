@@ -28,6 +28,9 @@ import {
   VWorldRouteOverlay,
 } from "@/lib/vworld/route-overlay";
 import { useMapModeStore, useSimulationStore } from "@/stores";
+import { getRoutePathDistanceM } from "@/lib/tmap/guidance";
+import { installSurfaceProbeDebugTools, registerVehiclePositionProvider } from "@/lib/vworld/surface-probe-debug";
+import { drivingSurfaceHeight } from "@/lib/vworld/surface-probe";
 import MapToolbar from "@/app/_components/tmap/MapToolbar";
 import RouteGuidanceOverlay from "@/app/_components/tmap/RouteGuidanceOverlay";
 import RouteControls from "@/app/_components/tmap/RouteControls";
@@ -105,6 +108,7 @@ export default function VWorldCanvas() {
     mapMode: "3d",
   });
   const chaseOffsetsRef = useRef<ChaseCameraOffsets>({ ...DEFAULT_CHASE_OFFSETS });
+  const frameIdRef = useRef(0);
   const mapMode = useMapModeStore((s) => s.mode);
   const [loadError, setLoadError] = useState("");
   const [ready, setReady] = useState(false);
@@ -205,14 +209,17 @@ export default function VWorldCanvas() {
       if (useSimulationStore.getState().route) {
         drawRouteOnMap(vw, controller, overlayRef.current, mapMode);
 
-        const { status, currentPosition } = useSimulationStore.getState();
+        const { status, currentPosition, progress, route } =
+          useSimulationStore.getState();
         const map2d = getMap2D(controller);
+        const traveledM = route ? progress * getRoutePathDistanceM(route) : 0;
         overlayRef.current.syncVehicle(
           vw,
           map2d,
           currentPosition,
           status === "running" || status === "paused" || status === "arrived",
-          mapMode
+          mapMode,
+          traveledM
         );
       }
 
@@ -222,6 +229,13 @@ export default function VWorldCanvas() {
 
   useEffect(() => {
     if (!ready) return;
+    installSurfaceProbeDebugTools();
+    registerVehiclePositionProvider(() => {
+      const { currentPosition, route, progress } = useSimulationStore.getState();
+      if (!currentPosition) return null;
+      const traveledM = route ? progress * getRoutePathDistanceM(route) : 0;
+      return { ...currentPosition, traveledM };
+    });
     const root = containerRef.current;
     if (!root) return;
 
@@ -239,6 +253,8 @@ export default function VWorldCanvas() {
 
     let rafId = 0;
     const tick = () => {
+      frameIdRef.current += 1;
+      const frameId = frameIdRef.current;
       const vw = vwRef.current;
       const controller = controllerRef.current;
       const map3d = controller ? getMap3D(controller) : null;
@@ -256,7 +272,8 @@ export default function VWorldCanvas() {
         return;
       }
 
-      const { status, currentPosition } = useSimulationStore.getState();
+      const { status, currentPosition, progress, route } =
+        useSimulationStore.getState();
       const currentMode = simRef.current.mapMode;
 
       const showVehicle =
@@ -266,12 +283,26 @@ export default function VWorldCanvas() {
           status === "paused" ||
           status === "arrived");
 
+      const traveledM = route ? progress * getRoutePathDistanceM(route) : 0;
+
+      let surfaceState = null;
+      if (showVehicle && currentPosition) {
+        surfaceState = drivingSurfaceHeight.updateFrameState(
+          currentPosition.lng,
+          currentPosition.lat,
+          traveledM,
+          frameId
+        );
+      }
+
       overlayRef.current.syncVehicle(
         vw,
         map2d,
         showVehicle ? currentPosition : null,
         showVehicle,
-        currentMode
+        currentMode,
+        traveledM,
+        surfaceState
       );
 
       if ((status === "running" || status === "paused") && currentPosition) {
@@ -282,7 +313,9 @@ export default function VWorldCanvas() {
             map2d,
             currentPosition,
             currentMode,
-            chaseOffsetsRef.current
+            chaseOffsetsRef.current,
+            traveledM,
+            surfaceState
           );
         } else if (map3d) {
           followCamera(
@@ -291,7 +324,9 @@ export default function VWorldCanvas() {
             map2d,
             currentPosition,
             currentMode,
-            chaseOffsetsRef.current
+            chaseOffsetsRef.current,
+            traveledM,
+            surfaceState
           );
         }
       }
@@ -322,14 +357,6 @@ export default function VWorldCanvas() {
         state.status === "running" || state.status === "paused";
       setCesiumCameraInputEnabled(
         simRef.current.mapMode === "3d" && !chaseActive
-      );
-
-      overlayRef.current.syncVehicle(
-        vw,
-        map2d,
-        simRef.current.vehiclePos,
-        simRef.current.showVehicle,
-        simRef.current.mapMode
       );
 
       if (state.status === "running" && prev.status !== "running") {

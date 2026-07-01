@@ -1,5 +1,6 @@
 import { destination } from "@turf/turf";
 import type { RoutePosition } from "@/lib/tmap/types";
+import { drivingSurfaceHeight, type DrivingSurfaceState } from "./surface-probe";
 import type { MapDisplayMode } from "./map-mode";
 import type {
   VWorldMapInstance,
@@ -40,9 +41,6 @@ const MAX_LATERAL_M = 150;
 type Ws3dRuntime = {
   viewer?: {
     scene?: {
-      globe?: {
-        getHeight: (carto: { longitude: number; latitude: number }) => number | undefined;
-      };
       camera?: {
         cancelFlight?: () => void;
         setView: (options: {
@@ -61,9 +59,6 @@ type Ws3dRuntime = {
       };
     };
     CesiumMath: { toRadians: (deg: number) => number };
-    Cartographic?: {
-      fromDegrees: (lng: number, lat: number) => { longitude: number; latitude: number };
-    };
   };
 };
 
@@ -73,17 +68,6 @@ function clamp(value: number, min: number, max: number) {
 
 function getWs3d(): Ws3dRuntime | null {
   return (window as unknown as { ws3d?: Ws3dRuntime }).ws3d ?? null;
-}
-
-function resolveTerrainHeight(ws3d: Ws3dRuntime, lng: number, lat: number): number {
-  try {
-    const carto = ws3d.common?.Cartographic?.fromDegrees(lng, lat);
-    if (!carto) return 0;
-    const height = ws3d.viewer?.scene?.globe?.getHeight(carto);
-    return height != null && Number.isFinite(height) ? height : 0;
-  } catch {
-    return 0;
-  }
 }
 
 function setCameraView(
@@ -186,7 +170,9 @@ export function followChaseCamera(
   map2d: VWorldOlMap | null | undefined,
   pos: RoutePosition,
   mapMode: MapDisplayMode,
-  offsets: ChaseCameraOffsets
+  offsets: ChaseCameraOffsets,
+  traveledM = 0,
+  surfaceState?: DrivingSurfaceState | null
 ) {
   if (mapMode === "2d") {
     if (map2d) {
@@ -236,9 +222,10 @@ export function followChaseCamera(
     [camLng, camLat] = lateral.geometry.coordinates;
   }
 
-  const ws3d = getWs3d();
-  const terrainH = ws3d ? resolveTerrainHeight(ws3d, camLng, camLat) : 0;
-  const altitude = terrainH + verticalM + offsets.heightAboveTerrainM;
+  const surfaceH = surfaceState
+    ? drivingSurfaceHeight.smoothCameraGround(surfaceState.groundHeightM)
+    : drivingSurfaceHeight.sampleForCamera(pos.lng, pos.lat, traveledM);
+  const altitude = surfaceH + verticalM + offsets.heightAboveTerrainM;
 
   if (setCameraView(camLng, camLat, altitude, orbitHeading, offsets.pitchDeg)) {
     return;

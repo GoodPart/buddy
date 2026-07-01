@@ -1,6 +1,15 @@
 import type { RouteResponse } from "@/lib/tmap/types";
 import type { RoutePosition } from "@/lib/tmap/types";
+import { buildElevatedSegments } from "@/lib/tmap/elevated-segments";
+import { getRoutePathDistanceM } from "@/lib/tmap/guidance";
 import { getRouteCoords } from "@/lib/tmap/route-line";
+import type { DrivingSurfaceState } from "./surface-probe";
+import {
+  buildRouteVertexHeights,
+  drivingSurfaceHeight,
+  resetDrivingSurfaceForRoute,
+  ROUTE_SURFACE_Z_BIAS_M,
+} from "./surface-probe";
 import { sliceCoordsForLinkSegment } from "@/lib/tmap/route-traffic-slice";
 import {
   congestionToRgb,
@@ -12,6 +21,7 @@ import {
 } from "./vehicle-model-overlay";
 import type { MapDisplayMode } from "./map-mode";
 import type {
+  VWorldCoordZ,
   VWorldGeometry,
   VWorldMapInstance,
   VWorldNamespace,
@@ -125,7 +135,7 @@ export class VWorldRouteOverlay {
     this.staticGeometries = [];
 
     if (!opts?.preserveVehicle) {
-      this.vehicleModelOverlay.clear();
+      this.vehicleModelOverlay.reset();
     }
   }
 
@@ -166,11 +176,52 @@ export class VWorldRouteOverlay {
     this.staticGeometries.push(geometry);
   }
 
+  private addRouteLine3D(
+    vw: VWorldNamespace,
+    id: string,
+    segCoords: [number, number][],
+    heights: number[],
+    r: number,
+    g: number,
+    b: number
+  ) {
+    const zCoords = segCoords.map(
+      ([lng, lat], i) =>
+        new vw.CoordZ(lng, lat, heights[i] + ROUTE_SURFACE_Z_BIAS_M) as VWorldCoordZ
+    );
+    const collection = new vw.Collection(zCoords);
+
+    const line =
+      vw.geom?.LineStringZ != null
+        ? new vw.geom.LineStringZ(collection)
+        : vw.geom?.LineString != null
+          ? new vw.geom.LineString(collection)
+          : null;
+    if (!line) return;
+
+    line.setId?.(id);
+    line.setFillColor?.(new vw.Color(r, g, b, 255));
+    line.setOutLineColor?.(new vw.Color(255, 255, 255, 255));
+    line.setWidth?.(5);
+    this.addStatic(line);
+  }
+
   drawRoute3D(vw: VWorldNamespace, map: VWorldMapInstance, route: RouteResponse) {
     this.clear3D(map, { preserveVehicle: true });
 
     const coords = getRouteCoords(route);
-    if (coords.length < 2 || !vw.geom?.LineString) return;
+    if (coords.length < 2 || (!vw.geom?.LineStringZ && !vw.geom?.LineString)) return;
+
+    resetDrivingSurfaceForRoute();
+    const elevatedSegments = buildElevatedSegments(
+      route.guidances,
+      getRoutePathDistanceM(route)
+    );
+    drivingSurfaceHeight.setElevatedSegments(elevatedSegments);
+
+    const routeHeights = buildRouteVertexHeights(coords, elevatedSegments);
+    const [startLng, startLat] = coords[0];
+    const [endLng, endLat] = coords[coords.length - 1];
 
     if (route.linkSegments.length > 0) {
       for (let i = 0; i < route.linkSegments.length; i++) {
@@ -178,29 +229,38 @@ export class VWorldRouteOverlay {
         const segCoords = sliceCoordsForLinkSegment(route, seg);
         if (segCoords.length < 2) continue;
 
-        const points = segCoords.map(([lng, lat]) => new vw.Coord(lng, lat));
-        const line = new vw.geom.LineString(new vw.Collection(points));
-        line.setId?.(`${ROUTE_ID}-${i}`);
+        const heights = buildRouteVertexHeights(
+          segCoords,
+          elevatedSegments,
+          seg.distanceStartM
+        );
         const { r, g, b } = congestionToRgb(seg.congestionLevel);
-        line.setFillColor?.(new vw.Color(r, g, b, 255));
-        line.setOutLineColor?.(new vw.Color(255, 255, 255, 255));
-        line.setWidth?.(5);
-        this.addStatic(line);
+        this.addRouteLine3D(vw, `${ROUTE_ID}-${i}`, segCoords, heights, r, g, b);
       }
     } else {
-      const points = coords.map(([lng, lat]) => new vw.Coord(lng, lat));
-      const line = new vw.geom.LineString(new vw.Collection(points));
-      line.setId?.(ROUTE_ID);
-      line.setFillColor?.(new vw.Color(37, 99, 235, 255));
-      line.setOutLineColor?.(new vw.Color(255, 255, 255, 255));
-      line.setWidth?.(5);
-      this.addStatic(line);
+      this.addRouteLine3D(vw, ROUTE_ID, coords, routeHeights, 37, 99, 235);
     }
 
-    const [startLng, startLat] = coords[0];
-    const [endLng, endLat] = coords[coords.length - 1];
-    this.addPoint3D(vw, START_ID, startLng, startLat, 0, 255, 0);
-    this.addPoint3D(vw, END_ID, endLng, endLat, 255, 0, 0);
+    this.addPoint3D(
+      vw,
+      START_ID,
+      startLng,
+      startLat,
+      routeHeights[0] + ROUTE_SURFACE_Z_BIAS_M,
+      0,
+      255,
+      0
+    );
+    this.addPoint3D(
+      vw,
+      END_ID,
+      endLng,
+      endLat,
+      routeHeights[routeHeights.length - 1] + ROUTE_SURFACE_Z_BIAS_M,
+      255,
+      0,
+      0
+    );
   }
 
   drawRoute2D(map2d: VWorldOlMap, route: RouteResponse) {
@@ -296,21 +356,28 @@ export class VWorldRouteOverlay {
     id: string,
     lng: number,
     lat: number,
+    altM: number,
     r: number,
     g: number,
     b: number
   ) {
     if (!vw.geom?.PointZ) return;
 
-    const point = new vw.geom.PointZ(new vw.CoordZ(lng, lat, 12));
+    const point = new vw.geom.PointZ(new vw.CoordZ(lng, lat, altM));
     point.setId?.(id);
     point.setFillColor?.(new vw.Color(r, g, b, 255));
     point.setOutLineColor?.(new vw.Color(0, 0, 0, 255));
     this.addStatic(point);
   }
 
-  syncVehicle3D(vw: VWorldNamespace, pos: RoutePosition | null, show: boolean) {
-    this.vehicleModelOverlay.sync(vw, pos, show);
+  syncVehicle3D(
+    vw: VWorldNamespace,
+    pos: RoutePosition | null,
+    show: boolean,
+    traveledM = 0,
+    surfaceState?: DrivingSurfaceState | null
+  ) {
+    this.vehicleModelOverlay.sync(vw, pos, show, traveledM, surfaceState);
   }
 
   syncVehicle2D(
@@ -362,7 +429,9 @@ export class VWorldRouteOverlay {
     map2d: VWorldOlMap | null,
     pos: RoutePosition | null,
     show: boolean,
-    mode: MapDisplayMode
+    mode: MapDisplayMode,
+    traveledM = 0,
+    surfaceState?: DrivingSurfaceState | null
   ) {
     if (mode === "2d") {
       this.vehicleModelOverlay.sync(vw, null, false);
@@ -370,7 +439,7 @@ export class VWorldRouteOverlay {
       return;
     }
     if (map2d) this.syncVehicle2D(map2d, null, false);
-    this.syncVehicle3D(vw, pos, show);
+    this.syncVehicle3D(vw, pos, show, traveledM, surfaceState);
   }
 
   flyToRoute3D(

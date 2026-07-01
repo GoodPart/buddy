@@ -96,7 +96,11 @@ export interface VWorldNamespace {
       setFillColor(c: unknown): void;
       setOutLineColor(c: unknown): void;
     };
-    LineStringZ: new (coords: unknown) => VWorldGeometry;
+    LineStringZ: new (coords: unknown) => VWorldGeometry & {
+      setWidth?(w: number): void;
+      setFillColor(c: unknown): void;
+      setOutLineColor(c: unknown): void;
+    };
     PointZ: new (coord: VWorldCoordZ) => VWorldGeometry & {
       setFillColor(c: unknown): void;
       setOutLineColor(c: unknown): void;

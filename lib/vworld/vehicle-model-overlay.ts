@@ -1,19 +1,22 @@
 import type { RoutePosition } from "@/lib/tmap/types";
+import {
+  clearSurfaceProbeCache,
+  drivingSurfaceHeight,
+  type DrivingSurfaceState,
+} from "./surface-probe";
 import type { VWorldNamespace } from "./global.d";
 
 /**
- * VWorld 3D(ws3d.viewer = Cesium)에서 glb 차량 표시.
- * ModelZ.redraw()는 매 프레임 호출 시 glb 재로드로 모델이 깜빡/소실됨 → entity position 갱신만 사용.
+ * VWorld 3D(ws3d.viewer = Cesium) glb 차량.
+ * Raycast 주행면 + 공용 안정화 트래커.
  */
 export const VEHICLE_GLB_URL = "/assets/modeling/humvee/humvee-vehicle.glb";
 export const VEHICLE_2D_ICON_URL = "/assets/modeling/humvee/car-top.svg";
 
 const VEHICLE_MODEL_ID = "buddy-vehicle-model";
-/** glb 최장 축(Z) 길이 — 지면 Plane 제거 후 inspect 기준 ~3.3 */
 const MODEL_UNIT_LENGTH = 3.3;
 const TARGET_LENGTH_M = 4.8;
 export const VEHICLE_MODEL_SCALE = TARGET_LENGTH_M / MODEL_UNIT_LENGTH;
-const HEIGHT_ABOVE_TERRAIN_M = 1.2;
 const HEADING_OFFSET_DEG = -90;
 
 type Cartesian3 = { x: number; y: number; z: number };
@@ -27,6 +30,7 @@ type CesiumEntity = {
   show: boolean;
   position?: unknown | CesiumProperty;
   orientation?: unknown | CesiumProperty;
+  model?: unknown | CesiumProperty;
 };
 
 type Ws3dRuntime = {
@@ -44,7 +48,7 @@ type Ws3dRuntime = {
     Cartesian3: { fromDegrees: (lng: number, lat: number, alt: number) => Cartesian3 };
     CesiumMath: { toRadians: (deg: number) => number };
     HeadingPitchRoll: new (heading: number, pitch: number, roll: number) => unknown;
-    HeightReference?: { RELATIVE_TO_GROUND: number };
+    HeightReference?: { NONE: number };
     ConstantPositionProperty?: new (value: Cartesian3) => unknown;
     ConstantProperty?: new (value: unknown) => unknown;
     Transforms?: {
@@ -71,19 +75,19 @@ function getRuntime(): {
   return { C, entities };
 }
 
-function heightReference(C: NonNullable<Ws3dRuntime["common"]>): number {
-  return C.HeightReference?.RELATIVE_TO_GROUND ?? 2;
+function heightReferenceNone(C: NonNullable<Ws3dRuntime["common"]>): number {
+  return C.HeightReference?.NONE ?? 0;
 }
 
-function buildPosition(
-  C: NonNullable<Ws3dRuntime["common"]>,
-  pos: RoutePosition
-): Cartesian3 {
-  return C.Cartesian3.fromDegrees(
-    pos.lng,
-    pos.lat,
-    HEIGHT_ABOVE_TERRAIN_M
-  );
+function modelGraphics(C: NonNullable<Ws3dRuntime["common"]>) {
+  return {
+    uri: VEHICLE_GLB_URL,
+    scale: VEHICLE_MODEL_SCALE,
+    minimumPixelSize: 48,
+    maximumScale: 20_000,
+    heightReference: heightReferenceNone(C),
+    runAnimations: false,
+  };
 }
 
 function buildOrientation(
@@ -99,17 +103,6 @@ function buildOrientation(
     position,
     new C.HeadingPitchRoll(headingRad, 0, 0)
   );
-}
-
-function modelGraphics(C: NonNullable<Ws3dRuntime["common"]>) {
-  return {
-    uri: VEHICLE_GLB_URL,
-    scale: VEHICLE_MODEL_SCALE,
-    minimumPixelSize: 48,
-    maximumScale: 20_000,
-    heightReference: heightReference(C),
-    runAnimations: false,
-  };
 }
 
 function setEntityProperty(
@@ -128,26 +121,6 @@ function setEntityProperty(
     return;
   }
   entity[key] = value;
-}
-
-function applyEntityTransform(
-  C: NonNullable<Ws3dRuntime["common"]>,
-  entity: CesiumEntity,
-  pos: RoutePosition
-) {
-  const position = buildPosition(C, pos);
-  const orientation = buildOrientation(C, position, pos.bearing);
-
-  setEntityProperty(
-    entity,
-    "position",
-    position,
-    C.ConstantPositionProperty
-  );
-
-  if (orientation) {
-    setEntityProperty(entity, "orientation", orientation, C.ConstantProperty);
-  }
 }
 
 function removeEntity(entity: CesiumEntity | null) {
@@ -173,7 +146,13 @@ function removeEntity(entity: CesiumEntity | null) {
 export class VehicleModelOverlay {
   private entity: CesiumEntity | null = null;
 
-  sync(_vw: VWorldNamespace, pos: RoutePosition | null, show: boolean): void {
+  sync(
+    _vw: VWorldNamespace,
+    pos: RoutePosition | null,
+    show: boolean,
+    traveledM = 0,
+    surfaceState?: DrivingSurfaceState | null
+  ): void {
     if (!show || !pos) {
       this.clear();
       return;
@@ -183,14 +162,18 @@ export class VehicleModelOverlay {
     if (!runtime) return;
 
     const { C, entities } = runtime;
+    const altitudeM =
+      surfaceState?.heightM ??
+      drivingSurfaceHeight.updateFrameState(pos.lng, pos.lat, traveledM).heightM;
+    const position = C.Cartesian3.fromDegrees(pos.lng, pos.lat, altitudeM);
+    const orientation = buildOrientation(C, position, pos.bearing);
 
     if (!this.entity) {
       try {
-        const position = buildPosition(C, pos);
         this.entity = entities.add({
           id: VEHICLE_MODEL_ID,
           position,
-          orientation: buildOrientation(C, position, pos.bearing),
+          orientation,
           show: true,
           model: modelGraphics(C),
         });
@@ -201,7 +184,15 @@ export class VehicleModelOverlay {
     }
 
     try {
-      applyEntityTransform(C, this.entity, pos);
+      setEntityProperty(
+        this.entity,
+        "position",
+        position,
+        C.ConstantPositionProperty as (new (value: unknown) => unknown) | undefined
+      );
+      if (orientation) {
+        setEntityProperty(this.entity, "orientation", orientation, C.ConstantProperty);
+      }
       this.entity.show = true;
     } catch (e) {
       console.warn("차량 3D 모델 갱신 실패:", e);
@@ -211,6 +202,11 @@ export class VehicleModelOverlay {
   clear(): void {
     removeEntity(this.entity);
     this.entity = null;
+  }
+
+  reset(): void {
+    clearSurfaceProbeCache();
+    this.clear();
   }
 }
 
