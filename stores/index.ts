@@ -7,3 +7,4 @@ export type { RouteSurfaceSnapshot } from "@/lib/tmap/route-surface";
 export {useRoutePlannerStore} from "./route-planner-store";
 export {useMapModeStore} from "./map-mode-store";
 export { useRadioStore } from "./radio-store";
+export { useTtsStore } from "./tts-store";

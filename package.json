@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "tts:setup": "cd tts-server && bash setup-local.sh",
+    "tts:dev": "cd tts-server && bash -lc 'test -d .venv || ./setup-local.sh; source .venv/bin/activate && uvicorn main:app --host 127.0.0.1 --port 8765 --reload'",
     "postinstall": "node scripts/copy-cesium.js"
   },
   "dependencies": {

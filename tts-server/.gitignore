@@ -1,0 +1,5 @@
+# setup-local.sh 가 생성 — git에는 main.py·스크립트만 포함
+.venv/
+.melotts-src/
+__pycache__/
+*.py[cod]

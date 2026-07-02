@@ -1,15 +1,13 @@
 "use client";
 
-import { isAtSignalStop, useSimulationStore } from "@/stores";
+import { useSimulationStore } from "@/stores";
 import {
-  buildNavInstruction,
   formatNavDistance,
   getRoutePathDistanceM,
-  getTurnIconKind,
   resolveGuidanceAtProgress,
   type NavPhase,
 } from "@/lib/tmap/guidance";
-import { formatRouteSurfaceBadge } from "@/lib/tmap/route-surface";
+import { resolveNavScreenDisplay } from "@/lib/tmap/nav-screen-display";
 import {
   getSegmentCongestion,
   getSegmentSpeedKmh,
@@ -50,20 +48,27 @@ export default function RouteGuidanceOverlay() {
 
   if (!route || route.guidances.length === 0) return null;
 
-  const atSignal = isAtSignalStop({ status, signalStopRemainingMs });
+  const display = resolveNavScreenDisplay({
+    status,
+    progress,
+    route,
+    routeSurface,
+    signalStopRemainingMs,
+    activeSignalStop,
+  });
+  if (!display) return null;
 
   const nav = resolveGuidanceAtProgress(route, progress);
-  const { upcoming, thenNext, distanceToUpcomingM, phase } = nav;
-
-  if (!upcoming) return null;
-
-  const { primary, secondary } = buildNavInstruction(nav);
-  const iconKind = getTurnIconKind(upcoming.turnType);
-  const showDistance =
-    status !== "arrived" &&
-    phase !== "now" &&
-    phase !== "arrived" &&
-    upcoming.turnType !== 201;
+  const { thenNext, phase } = nav;
+  const {
+    atSignal,
+    primary,
+    secondary,
+    surfaceBadge,
+    showDistance,
+    distanceLabel,
+    iconKind,
+  } = display;
 
   const pathDist = getRoutePathDistanceM(route);
   const remainingM = Math.max(0, pathDist - nav.traveledM);
@@ -77,7 +82,6 @@ export default function RouteGuidanceOverlay() {
   const segmentSpeedKmh = getSegmentSpeedKmh(route, nav.traveledM);
   const segmentCongestion = getSegmentCongestion(route, nav.traveledM);
   const showSpeed = status === "running" || status === "paused";
-  const surfaceBadge = formatRouteSurfaceBadge(routeSurface, formatNavDistance);
 
   const panelClass = atSignal
     ? "border-red-400/70 bg-gray-950/95"
@@ -93,9 +97,7 @@ export default function RouteGuidanceOverlay() {
         {atSignal ? (
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-red-300">
             신호 대기
-            {activeSignalStop
-              ? ` · ${activeSignalStop.label}`
-              : ""}
+            {activeSignalStop ? ` · ${activeSignalStop.label}` : ""}
           </p>
         ) : surfaceBadge ? (
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-violet-300">
@@ -117,17 +119,15 @@ export default function RouteGuidanceOverlay() {
           </div>
 
           <div className="min-w-0 flex-1">
-            {showDistance && (
+            {showDistance && distanceLabel ? (
               <p
                 className={`text-2xl font-bold tabular-nums leading-none ${PHASE_DISTANCE[phase]}`}
               >
-                {formatNavDistance(distanceToUpcomingM)}
+                {distanceLabel}
               </p>
-            )}
+            ) : null}
             <p className="mt-1 text-sm font-semibold leading-snug text-white">
-              {atSignal
-                ? `약 ${Math.ceil(signalStopRemainingMs / 1000)}초 후 출발`
-                : primary}
+              {primary}
             </p>
             {secondary ? (
               <p className="mt-0.5 truncate text-xs text-gray-300">

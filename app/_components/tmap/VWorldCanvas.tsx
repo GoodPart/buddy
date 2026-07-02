@@ -36,6 +36,7 @@ import MapToolbar from "@/app/_components/tmap/MapToolbar";
 import RouteGuidanceOverlay from "@/app/_components/tmap/RouteGuidanceOverlay";
 import RouteControls from "@/app/_components/tmap/RouteControls";
 import RadioAudioHost from "@/app/_components/tmap/RadioAudioHost";
+import NavTtsHost from "@/app/_components/tmap/NavTtsHost";
 import "./vworld-map.css";
 import SmartphoneOverlay from "./SmartphoneOverlay";
 
@@ -443,6 +444,7 @@ export default function VWorldCanvas() {
       <RouteGuidanceOverlay />
       <SmartphoneOverlay />
       <RadioAudioHost />
+      <NavTtsHost />
       <div ref={containerRef} className="absolute inset-0 touch-none">
         <div id={MAP_CONTAINER_ID} className="h-full w-full [&_*]:box-border" />
       </div>
