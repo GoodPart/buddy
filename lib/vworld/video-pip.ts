@@ -1,3 +1,6 @@
+import { renderPipHudCache } from "@/lib/vworld/pip-hud-canvas";
+import { useSimulationStore } from "@/stores/simulation-store";
+
 export type VideoPipSession = {
   video: HTMLVideoElement;
   stream: MediaStream;
@@ -8,6 +11,11 @@ let activeSession: VideoPipSession | null = null;
 
 const PIP_MIN_WIDTH = 640;
 const PIP_MIN_HEIGHT = 360;
+
+let pipHudCanvas: HTMLCanvasElement | null = null;
+let pipHudCtx: CanvasRenderingContext2D | null = null;
+let pipHudUnsub: (() => void) | null = null;
+let pipHudSize = { width: 0, height: 0 };
 
 export function isVideoPipSupported(): boolean {
   if (typeof document === "undefined") return false;
@@ -68,7 +76,52 @@ async function waitForVideoDimensions(
   return read();
 }
 
-function createScaledCaptureStream(
+function ensurePipHudLayer(width: number, height: number) {
+  if (
+    pipHudCanvas &&
+    pipHudSize.width === width &&
+    pipHudSize.height === height
+  ) {
+    return;
+  }
+
+  pipHudCanvas = document.createElement("canvas");
+  pipHudCanvas.width = width;
+  pipHudCanvas.height = height;
+  pipHudCtx = pipHudCanvas.getContext("2d");
+  pipHudSize = { width, height };
+}
+
+function syncPipHudFromStore() {
+  if (!pipHudCtx || !pipHudCanvas) return;
+  renderPipHudCache(
+    pipHudCtx,
+    pipHudCanvas.width,
+    pipHudCanvas.height,
+    useSimulationStore.getState().navHudSnapshot
+  );
+}
+
+function attachPipHudListener(width: number, height: number) {
+  ensurePipHudLayer(width, height);
+  syncPipHudFromStore();
+  pipHudUnsub?.();
+  pipHudUnsub = useSimulationStore.subscribe((state, prev) => {
+    if (state.navHudSnapshot !== prev.navHudSnapshot) {
+      syncPipHudFromStore();
+    }
+  });
+}
+
+function detachPipHudListener() {
+  pipHudUnsub?.();
+  pipHudUnsub = null;
+  pipHudCanvas = null;
+  pipHudCtx = null;
+  pipHudSize = { width: 0, height: 0 };
+}
+
+function createCompositeCaptureStream(
   sourceCanvas: HTMLCanvasElement,
   width: number,
   height: number,
@@ -92,6 +145,9 @@ function createScaledCaptureStream(
       lastDraw = now;
       try {
         ctx.drawImage(sourceCanvas, 0, 0, width, height);
+        if (pipHudCanvas) {
+          ctx.drawImage(pipHudCanvas, 0, 0, width, height);
+        }
       } catch {
         /* WebGL readback 실패 시 무시 */
       }
@@ -120,29 +176,8 @@ function createCaptureStream(
   canvas: HTMLCanvasElement,
   targetSize: { width: number; height: number }
 ): { stream: MediaStream; stop?: () => void } {
-  const directCapture = (
-    canvas as HTMLCanvasElement & { captureStream?(fps?: number): MediaStream }
-  ).captureStream;
-
-  if (typeof directCapture !== "function") {
-    throw new Error("지도 canvas에서 영상을 캡처할 수 없습니다.");
-  }
-
-  const directStream = directCapture.call(canvas, 30);
-  const [track] = directStream.getVideoTracks();
-  const settings = track?.getSettings?.() ?? {};
-  const trackW = settings.width ?? canvas.width;
-  const trackH = settings.height ?? canvas.height;
-
-  const largeEnough =
-    trackW >= PIP_MIN_WIDTH * 0.75 && trackH >= PIP_MIN_HEIGHT * 0.75;
-
-  if (largeEnough) {
-    return { stream: directStream };
-  }
-
-  directStream.getTracks().forEach((t) => t.stop());
-  return createScaledCaptureStream(
+  attachPipHudListener(targetSize.width, targetSize.height);
+  return createCompositeCaptureStream(
     canvas,
     targetSize.width,
     targetSize.height,
@@ -202,6 +237,7 @@ async function cleanupSession(session: VideoPipSession | null): Promise<void> {
   session.video.pause();
   session.video.srcObject = null;
   session.video.remove();
+  detachPipHudListener();
 }
 
 export async function stopVideoPip(): Promise<void> {

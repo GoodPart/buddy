@@ -2,6 +2,7 @@ export {useAuthStore} from "./auth-store";
 export {useUIStore} from "./ui-store";
 export {usePostStore} from "./post-store";
 export { useSimulationStore, isAtSignalStop } from "./simulation-store";
+export type { NavHudSnapshot } from "@/lib/tmap/nav-hud-snapshot";
 export type { RouteSurfaceSnapshot } from "@/lib/tmap/route-surface";
 export {useRoutePlannerStore} from "./route-planner-store";
 export {useMapModeStore} from "./map-mode-store";

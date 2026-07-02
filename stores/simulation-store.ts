@@ -15,9 +15,33 @@ import {
   type RouteSurfaceSnapshot,
 } from "@/lib/tmap/route-surface";
 import type { Place, RoutePosition, RouteResponse } from "@/lib/tmap/types";
+import {
+  buildNavHudSnapshot,
+  EMPTY_NAV_HUD,
+  navHudChangeKey,
+  type NavHudSnapshot,
+} from "@/lib/tmap/nav-hud-snapshot";
 import { drivingSurfaceHeight } from "@/lib/vworld/surface-probe";
 
 export type SimStatus = "idle" | "ready" | "running" | "paused" | "arrived";
+
+let lastNavHudKey = "";
+
+function syncNavHudSnapshot(
+  set: (partial: Partial<SimulationState>) => void,
+  get: () => SimulationState
+) {
+  const state = get();
+  const key = navHudChangeKey(state);
+  if (key === lastNavHudKey) return;
+  lastNavHudKey = key;
+  set({ navHudSnapshot: buildNavHudSnapshot(state) });
+}
+
+function resetNavHudSnapshot(set: (partial: Partial<SimulationState>) => void) {
+  lastNavHudKey = "";
+  set({ navHudSnapshot: EMPTY_NAV_HUD });
+}
 
 type SimulationState = {
   status: SimStatus;
@@ -39,6 +63,9 @@ type SimulationState = {
 
   /** Tmap 안내 기반 지하·터널 주행 상태 */
   routeSurface: RouteSurfaceSnapshot;
+
+  /** PiP HUD — 매뉴버·상태 변경 시에만 갱신 */
+  navHudSnapshot: NavHudSnapshot;
 
   setDeparture: (p: Place | null) => void;
   setDestination: (p: Place | null) => void;
@@ -63,6 +90,7 @@ const simResetFields = {
   signalStopRemainingMs: 0,
   activeSignalStop: null as SignalStop | null,
   routeSurface: EMPTY_ROUTE_SURFACE,
+  navHudSnapshot: EMPTY_NAV_HUD,
 };
 
 const initial = {
@@ -87,6 +115,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
 
   setRoute: (route) => {
     if (!route) {
+      resetNavHudSnapshot(set);
       set({ ...initial });
       return;
     }
@@ -104,6 +133,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       signalStops: buildSignalStopsFromGuidances(route.guidances),
       routeSurface: surfaceForRoute(route, 0),
     });
+    syncNavHudSnapshot(set, get);
   },
 
   setSpeedMultiplier: (speedMultiplier) => set({ speedMultiplier }),
@@ -117,6 +147,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       signalStopRemainingMs: 0,
       activeSignalStop: null,
     });
+    syncNavHudSnapshot(set, get);
   },
 
   pause: () => {
@@ -129,6 +160,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       signalStopRemainingMs: 0,
       activeSignalStop: null,
     });
+    syncNavHudSnapshot(set, get);
   },
 
   resume: () => {
@@ -139,9 +171,13 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       totalPausedMs: totalPausedMs + (Date.now() - pausedAt),
       pausedAt: null,
     });
+    syncNavHudSnapshot(set, get);
   },
 
-  reset: () => set({ ...initial }),
+  reset: () => {
+    resetNavHudSnapshot(set);
+    set({ ...initial });
+  },
 
   tick: (deltaMs) => {
     const {
@@ -165,9 +201,11 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       );
       if (remaining > 0) {
         set({ signalStopRemainingMs: remaining });
+        syncNavHudSnapshot(set, get);
         return;
       }
       set({ signalStopRemainingMs: 0, activeSignalStop: null });
+      syncNavHudSnapshot(set, get);
     }
 
     const traveledM = progress * pathDistM;
@@ -197,6 +235,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
         passedSignalStopIds: [...passedSignalStopIds, triggered.id],
         routeSurface: surfaceForRoute(route, stopProgress),
       });
+      syncNavHudSnapshot(set, get);
       return;
     }
 
@@ -212,6 +251,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
         activeSignalStop: null,
         routeSurface: surfaceForRoute(route, 1),
       });
+      syncNavHudSnapshot(set, get);
       return;
     }
     set({
@@ -219,6 +259,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       currentPosition,
       routeSurface: surfaceForRoute(route, next),
     });
+    syncNavHudSnapshot(set, get);
   },
 }));
 
