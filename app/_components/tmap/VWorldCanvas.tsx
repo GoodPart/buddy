@@ -25,6 +25,7 @@ import type { MapDisplayMode } from "@/lib/vworld/map-mode";
 import { toVWorldMapMode } from "@/lib/vworld/map-mode";
 import { MyLocationOverlay } from "@/lib/vworld/my-location-overlay";
 import {
+  routeDisplayModeFromStatus,
   VWorldRouteOverlay,
 } from "@/lib/vworld/route-overlay";
 import { useMapModeStore, useSimulationStore } from "@/stores";
@@ -34,6 +35,7 @@ import { drivingSurfaceHeight } from "@/lib/vworld/surface-probe";
 import MapToolbar from "@/app/_components/tmap/MapToolbar";
 import RouteGuidanceOverlay from "@/app/_components/tmap/RouteGuidanceOverlay";
 import RouteControls from "@/app/_components/tmap/RouteControls";
+import RadioAudioHost from "@/app/_components/tmap/RadioAudioHost";
 import "./vworld-map.css";
 import SmartphoneOverlay from "./SmartphoneOverlay";
 
@@ -52,16 +54,18 @@ function drawRouteOnMap(
   overlay: VWorldRouteOverlay,
   mapMode: MapDisplayMode
 ) {
-  const route = useSimulationStore.getState().route;
+  const { route, status } = useSimulationStore.getState();
   const map3d = getMap3D(controller);
   const map2d = getMap2D(controller);
   if (!route) return;
   if (mapMode === "3d" && !map3d) return;
   if (mapMode === "2d" && !map2d) return;
 
+  const displayMode = routeDisplayModeFromStatus(status);
+
   try {
-    overlay.drawRoute(vw, map3d!, map2d, route, mapMode);
     overlay.flyToRoute(vw, map3d!, map2d, route, mapMode);
+    overlay.drawRoute(vw, map3d!, map2d, route, mapMode, displayMode);
   } catch (e) {
     console.warn("경로 표시 실패:", e);
   }
@@ -363,6 +367,18 @@ export default function VWorldCanvas() {
         cancelCameraFlight();
       }
 
+      if (
+        state.route &&
+        simRef.current.mapMode === "3d" &&
+        state.status !== prev.status
+      ) {
+        overlayRef.current.setRouteDisplayMode(
+          vw,
+          state.route,
+          routeDisplayModeFromStatus(state.status)
+        );
+      }
+
       if (state.route !== prev.route && state.route) {
         resetChaseCameraOffsets(chaseOffsetsRef.current);
       }
@@ -391,19 +407,20 @@ export default function VWorldCanvas() {
             if (simRef.current.mapMode === "3d" && !m3d) return;
             if (simRef.current.mapMode === "2d" && !m2d) return;
 
-            overlayRef.current.drawRoute(
-              v,
-              m3d!,
-              m2d,
-              state.route,
-              simRef.current.mapMode
-            );
             overlayRef.current.flyToRoute(
               v,
               m3d!,
               m2d,
               state.route,
               simRef.current.mapMode
+            );
+            overlayRef.current.drawRoute(
+              v,
+              m3d!,
+              m2d,
+              state.route,
+              simRef.current.mapMode,
+              routeDisplayModeFromStatus(state.status)
             );
             syncMyLocationMarker();
           } catch (e) {
@@ -425,6 +442,7 @@ export default function VWorldCanvas() {
       <RouteControls overlay />
       <RouteGuidanceOverlay />
       <SmartphoneOverlay />
+      <RadioAudioHost />
       <div ref={containerRef} className="absolute inset-0 touch-none">
         <div id={MAP_CONTAINER_ID} className="h-full w-full [&_*]:box-border" />
       </div>

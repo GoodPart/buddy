@@ -12,8 +12,10 @@
 import type { ElevatedSegment } from "@/lib/tmap/elevated-segments";
 import { lookupElevatedOffsetM } from "@/lib/tmap/elevated-segments";
 import { buildCumulativeDistances } from "@/lib/tmap/geo";
+import type { RouteResponse } from "@/lib/tmap/types";
+import { getRouteCoords } from "@/lib/tmap/route-line";
 import {
-  ROUTE_TESSELLATE_MAX_SEGMENT_M,
+  ROUTE_PROBE_TESSELLATE_MAX_M,
   tessellateRouteCoords,
 } from "@/lib/tmap/route-line";
 import { bridgeGisProvider } from "./bridge-gis-layer";
@@ -54,8 +56,12 @@ const HEIGHT_DEAD_ZONE_DECK_M = 0.25;
 const PROBE_MIN_MOVE_DEG = 0.000016;
 /** deck 모드 유지 — 지면과 이 거리 이상이면 아직 교량 위 */
 const DECK_LATCH_MIN_ABOVE_TERRAIN_M = 5;
+/** hint 구간이지만 DEM이 아직 평지 — offset 적용 최소 상승(m) */
+const HINT_FLAT_TERRAIN_RISE_M = 2;
 /** hint 구간 진입 후 지형이 이만큼 올랐으면 DEM이 도로 형상을 이미 반영 — hint 생략 */
 const TERRAIN_BUMP_HINT_SUPPRESS_M = 3.5;
+/** hint 없을 때 허용 최대 고도 = terrain + 도로 mesh 상한 */
+const REGULAR_ROAD_MAX_ABOVE_TERRAIN_M = ROAD_MESH_MAX_ABOVE_TERRAIN_M;
 
 export type SurfaceSource = "mesh" | "gis" | "hint-offset" | "terrain";
 
@@ -433,6 +439,30 @@ function shouldSuppressHintOffset(
   return terrainH - hintEntryTerrainH >= TERRAIN_BUMP_HINT_SUPPRESS_M;
 }
 
+/** 교량 hint 구간 진입 직후 DEM이 평지면 offset 생략 — 공중 부양 방지 */
+function shouldDeferHintOffset(
+  terrainH: number,
+  hintEntryTerrainH: number | null
+): boolean {
+  if (hintEntryTerrainH == null) return false;
+  return terrainH - hintEntryTerrainH < HINT_FLAT_TERRAIN_RISE_M;
+}
+
+function shouldClampToRegularRoad(
+  probe: SurfaceProbe,
+  target: number,
+  effectiveHint: number
+): boolean {
+  if (probe.underOverpassH != null) return false;
+  if (probe.source === "mesh" && probe.deckH != null) return false;
+  if (probe.meshDeckCandidate && probe.deckH != null) return false;
+  if (probe.source === "gis") return false;
+  if (effectiveHint > 0 && probe.source === "hint-offset") return false;
+
+  const maxH = probe.terrainH + REGULAR_ROAD_MAX_ABOVE_TERRAIN_M;
+  return target > maxH;
+}
+
 export class DrivingSurfaceHeightTracker {
   private stableH: number | null = null;
   private targetH: number | null = null;
@@ -451,7 +481,7 @@ export class DrivingSurfaceHeightTracker {
     this.elevatedSegments = segments;
   }
 
-  private resolveTarget(probe: SurfaceProbe): number {
+  private resolveTarget(probe: SurfaceProbe, hintOffsetM = 0): number {
     const wantsDeck = probe.source === "mesh" && probe.deckH != null;
 
     if (wantsDeck) {
@@ -503,13 +533,33 @@ export class DrivingSurfaceHeightTracker {
     }
     this.lastHintOffsetM = hintOffset;
 
+    let effectiveHint = hintOffset;
+    const terrainNow = readTerrainHeightAt(lng, lat);
+    if (
+      effectiveHint > 0 &&
+      shouldDeferHintOffset(terrainNow, this.hintZoneEntryTerrainH)
+    ) {
+      effectiveHint = 0;
+    }
+
     if (!force && !movedEnough(lng, lat, this.lastProbeLng, this.lastProbeLat)) {
       return;
     }
 
     const deckLatched = this.mode === "deck" || this.lastSource === "mesh";
-    const probe = evaluateSurfaceProbe(lng, lat, hintOffset, deckLatched);
-    let target = this.resolveTarget(probe);
+    let probe = evaluateSurfaceProbe(lng, lat, effectiveHint, deckLatched);
+
+    if (
+      probe.source !== "mesh" &&
+      hintOffset > 0 &&
+      effectiveHint === 0 &&
+      !shouldDeferHintOffset(terrainNow, this.hintZoneEntryTerrainH)
+    ) {
+      effectiveHint = hintOffset;
+      probe = evaluateSurfaceProbe(lng, lat, effectiveHint, deckLatched);
+    }
+
+    let target = this.resolveTarget(probe, effectiveHint);
     let effectiveSource = probe.source;
 
     if (
@@ -546,6 +596,18 @@ export class DrivingSurfaceHeightTracker {
       Math.abs(target - probe.terrainH) < TERRAIN_LOCK_BAND_M
     ) {
       target = probe.terrainH;
+    }
+
+    if (shouldClampToRegularRoad(probe, target, effectiveHint)) {
+      target = probe.terrainH + REGULAR_ROAD_MAX_ABOVE_TERRAIN_M;
+      effectiveSource = "terrain";
+      if (this.mode === "deck") this.mode = "terrain";
+    }
+
+    if (probe.source === "mesh" && probe.deckH != null) {
+      target = probe.deckH;
+      effectiveSource = "mesh";
+      this.mode = "deck";
     }
 
     this.targetH = target;
@@ -682,6 +744,147 @@ export class DrivingSurfaceHeightTracker {
 
 export const drivingSurfaceHeight = new DrivingSurfaceHeightTracker();
 
+const ROUTE_PROBE_CHUNK_SIZE = 48;
+const ROUTE_SURFACE_CACHE_MAX = 4;
+
+export type RouteSurfacePath = {
+  coords: [number, number][];
+  heights: number[];
+};
+
+type RouteSurfaceCacheEntry = {
+  lines: Array<{
+    id: string;
+    coords: [number, number][];
+    heights: number[];
+    r: number;
+    g: number;
+    b: number;
+  }>;
+  startH: number;
+  endH: number;
+};
+
+const routeSurfaceCache = new Map<string, RouteSurfaceCacheEntry>();
+
+function yieldToMain(): Promise<void> {
+  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+}
+
+export function getRouteSurfaceCacheKey(route: RouteResponse): string {
+  const coords = getRouteCoords(route);
+  if (coords.length < 2) return `${route.pathDistance}`;
+  const a = coords[0];
+  const b = coords[coords.length - 1];
+  return `${route.pathDistance}|${coords.length}|${a[0].toFixed(5)},${a[1].toFixed(5)}|${b[0].toFixed(5)},${b[1].toFixed(5)}|${route.linkSegments.length}`;
+}
+
+export function getCachedRouteSurface(
+  route: RouteResponse
+): RouteSurfaceCacheEntry | null {
+  return routeSurfaceCache.get(getRouteSurfaceCacheKey(route)) ?? null;
+}
+
+export function storeCachedRouteSurface(
+  route: RouteResponse,
+  entry: RouteSurfaceCacheEntry
+): void {
+  storeRouteSurfaceCache(getRouteSurfaceCacheKey(route), entry);
+}
+
+export type { RouteSurfaceCacheEntry };
+
+function storeRouteSurfaceCache(key: string, entry: RouteSurfaceCacheEntry): void {
+  if (routeSurfaceCache.size >= ROUTE_SURFACE_CACHE_MAX) {
+    const first = routeSurfaceCache.keys().next().value;
+    if (first) routeSurfaceCache.delete(first);
+  }
+  routeSurfaceCache.set(key, entry);
+}
+
+/** 출발·도착 2점만 probe (링크 구간 경로용) */
+export function sampleRouteEndpointHeights(
+  start: [number, number],
+  end: [number, number],
+  pathDistanceM: number,
+  elevatedSegments: ElevatedSegment[],
+  baker?: DrivingSurfaceHeightTracker
+): { startH: number; endH: number } {
+  const probe = baker ?? new DrivingSurfaceHeightTracker();
+  if (!baker) probe.setElevatedSegments(elevatedSegments);
+  return {
+    startH: probe.sampleRouteVertex(start[0], start[1], 0),
+    endH: probe.sampleRouteVertex(end[0], end[1], pathDistanceM),
+  };
+}
+
+/** 프레임마다 청크 단위 probe — 메인 스레드 블로킹 완화 */
+export async function buildRouteVertexHeightsAsync(
+  coords: [number, number][],
+  elevatedSegments: ElevatedSegment[],
+  routeOffsetM = 0,
+  options?: {
+    baker?: DrivingSurfaceHeightTracker;
+    tessellate?: boolean;
+    maxSegmentM?: number;
+    chunkSize?: number;
+    shouldCancel?: () => boolean;
+  }
+): Promise<number[]> {
+  if (coords.length === 0) return [];
+
+  const tessellate = options?.tessellate !== false;
+  const maxSegmentM = options?.maxSegmentM ?? ROUTE_PROBE_TESSELLATE_MAX_M;
+  const chunkSize = options?.chunkSize ?? ROUTE_PROBE_CHUNK_SIZE;
+  const sampled = tessellate
+    ? tessellateRouteCoords(coords, maxSegmentM)
+    : coords;
+
+  const baker = options?.baker ?? new DrivingSurfaceHeightTracker();
+  if (!options?.baker) baker.setElevatedSegments(elevatedSegments);
+
+  const cumulative = buildCumulativeDistances(sampled);
+  const heights: number[] = [];
+
+  for (let i = 0; i < sampled.length; i++) {
+    if (options?.shouldCancel?.()) return [];
+    const [lng, lat] = sampled[i];
+    heights.push(baker.sampleRouteVertex(lng, lat, routeOffsetM + cumulative[i]));
+    if (i > 0 && i % chunkSize === 0) {
+      await yieldToMain();
+      if (options?.shouldCancel?.()) return [];
+    }
+  }
+
+  return heights;
+}
+
+export async function buildRouteSurfacePathAsync(
+  coords: [number, number][],
+  elevatedSegments: ElevatedSegment[],
+  routeOffsetM = 0,
+  options?: {
+    baker?: DrivingSurfaceHeightTracker;
+    maxSegmentM?: number;
+    shouldCancel?: () => boolean;
+  }
+): Promise<RouteSurfacePath> {
+  const maxSegmentM = options?.maxSegmentM ?? ROUTE_PROBE_TESSELLATE_MAX_M;
+  const tessellated = tessellateRouteCoords(coords, maxSegmentM);
+  const heights = await buildRouteVertexHeightsAsync(
+    tessellated,
+    elevatedSegments,
+    routeOffsetM,
+    {
+      baker: options?.baker,
+      tessellate: false,
+      maxSegmentM,
+      shouldCancel: options?.shouldCancel,
+    }
+  );
+  return { coords: tessellated, heights };
+}
+
 /** 경로 정점별 주행면 고도 — 차량과 동일 probe resolver, 별도 baker로 live tracker 오염 방지 */
 export function buildRouteVertexHeights(
   coords: [number, number][],
@@ -692,7 +895,7 @@ export function buildRouteVertexHeights(
   if (coords.length === 0) return [];
 
   const tessellate = options?.tessellate !== false;
-  const maxSegmentM = options?.maxSegmentM ?? ROUTE_TESSELLATE_MAX_SEGMENT_M;
+  const maxSegmentM = options?.maxSegmentM ?? ROUTE_PROBE_TESSELLATE_MAX_M;
   const sampled = tessellate
     ? tessellateRouteCoords(coords, maxSegmentM)
     : coords;
@@ -712,7 +915,7 @@ export function buildRouteSurfacePath(
   routeOffsetM = 0,
   options?: { maxSegmentM?: number }
 ): { coords: [number, number][]; heights: number[] } {
-  const maxSegmentM = options?.maxSegmentM ?? ROUTE_TESSELLATE_MAX_SEGMENT_M;
+  const maxSegmentM = options?.maxSegmentM ?? ROUTE_PROBE_TESSELLATE_MAX_M;
   const tessellated = tessellateRouteCoords(coords, maxSegmentM);
   const heights = buildRouteVertexHeights(tessellated, elevatedSegments, routeOffsetM, {
     tessellate: false,
@@ -723,6 +926,7 @@ export function buildRouteSurfacePath(
 export function clearSurfaceProbeCache(): void {
   rawHeightCache.clear();
   drivingSurfaceHeight.reset();
+  routeSurfaceCache.clear();
 }
 
 export function resetDrivingSurfaceForRoute(): void {

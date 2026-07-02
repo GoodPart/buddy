@@ -64,4 +64,6 @@ export type RouteResponse = {
     maxLng: number;
   };
   guidances: RouteGuidance[];
+  /** Tmap 안내 기반 지하차도·터널 구간 */
+  undergroundSegments: import("./underground-segments").UndergroundSegment[];
 };

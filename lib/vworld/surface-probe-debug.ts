@@ -2,6 +2,7 @@
  * 주행면 조사 — dev: window.__buddyInspectSurface(lng, lat)
  */
 
+import { bridgeGisProvider } from "./bridge-gis-layer";
 import { drivingSurfaceHeight, readTerrainHeightAt } from "./surface-probe";
 import {
   drillPickHitsWithMetadata,
@@ -9,7 +10,12 @@ import {
   hitsContainBridgeMesh,
   type RayHitInfo,
 } from "./ray-hit-inspect";
-import { bridgeGisProvider } from "./bridge-gis-layer";
+import { getRoutePathDistanceM } from "@/lib/tmap/guidance";
+import {
+  inspectRouteSurface,
+  type RouteSurfaceSnapshot,
+} from "@/lib/tmap/route-surface";
+import { useSimulationStore } from "@/stores";
 
 export type SurfaceInspectReport = {
   lng: number;
@@ -173,12 +179,25 @@ function inspectVehiclePosition(): SurfaceInspectReport | undefined {
   return report;
 }
 
+function inspectRouteSurfaceFromSim(progress?: number): RouteSurfaceSnapshot | null {
+  const { route, progress: storeProgress } = useSimulationStore.getState();
+  if (!route) {
+    console.warn("[buddy] route 없음 — 경로 검색 후 사용하세요.");
+    return null;
+  }
+  const p = progress ?? storeProgress;
+  const traveledM = Math.min(1, Math.max(0, p)) * getRoutePathDistanceM(route);
+  return inspectRouteSurface(traveledM, route.undergroundSegments ?? []);
+}
+
 export function installSurfaceProbeDebugTools(): void {
   if (typeof window === "undefined") return;
   const w = window as unknown as {
     __buddyInspectSurface?: (lng: number, lat: number) => SurfaceInspectReport;
     __buddyInspectVehicle?: () => SurfaceInspectReport | undefined;
+    __buddyInspectRouteSurface?: (progress?: number) => RouteSurfaceSnapshot | null;
   };
   w.__buddyInspectSurface = logSurfaceInspectReport;
   w.__buddyInspectVehicle = inspectVehiclePosition;
+  w.__buddyInspectRouteSurface = inspectRouteSurfaceFromSim;
 }

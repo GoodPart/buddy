@@ -8,7 +8,14 @@ import {
   findSignalStopTrigger,
   type SignalStop,
 } from "@/lib/tmap/signal-stops";
+import { buildElevatedSegments } from "@/lib/tmap/elevated-segments";
+import {
+  EMPTY_ROUTE_SURFACE,
+  resolveRouteSurface,
+  type RouteSurfaceSnapshot,
+} from "@/lib/tmap/route-surface";
 import type { Place, RoutePosition, RouteResponse } from "@/lib/tmap/types";
+import { drivingSurfaceHeight } from "@/lib/vworld/surface-probe";
 
 export type SimStatus = "idle" | "ready" | "running" | "paused" | "arrived";
 
@@ -29,6 +36,9 @@ type SimulationState = {
   passedSignalStopIds: number[];
   signalStopRemainingMs: number;
   activeSignalStop: SignalStop | null;
+
+  /** Tmap 안내 기반 지하·터널 주행 상태 */
+  routeSurface: RouteSurfaceSnapshot;
 
   setDeparture: (p: Place | null) => void;
   setDestination: (p: Place | null) => void;
@@ -52,6 +62,7 @@ const simResetFields = {
   passedSignalStopIds: [] as number[],
   signalStopRemainingMs: 0,
   activeSignalStop: null as SignalStop | null,
+  routeSurface: EMPTY_ROUTE_SURFACE,
 };
 
 const initial = {
@@ -61,6 +72,12 @@ const initial = {
   route: null,
   ...simResetFields,
 };
+
+function surfaceForRoute(route: RouteResponse, progress: number): RouteSurfaceSnapshot {
+  const pathDistM = getRoutePathDistanceM(route);
+  const traveledM = Math.min(1, Math.max(0, progress)) * pathDistM;
+  return resolveRouteSurface(traveledM, route.undergroundSegments ?? []);
+}
 
 export const useSimulationStore = create<SimulationState>((set, get) => ({
   ...initial,
@@ -74,6 +91,9 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       return;
     }
     const pos: RoutePosition = interpolateAlongRoute(route, 0);
+    drivingSurfaceHeight.setElevatedSegments(
+      buildElevatedSegments(route.guidances, getRoutePathDistanceM(route))
+    );
     set({
       route,
       status: "ready",
@@ -82,6 +102,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       ...simResetFields,
       currentPosition: pos,
       signalStops: buildSignalStopsFromGuidances(route.guidances),
+      routeSurface: surfaceForRoute(route, 0),
     });
   },
 
@@ -174,6 +195,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
         signalStopRemainingMs: triggered.waitDurationMs,
         activeSignalStop: triggered,
         passedSignalStopIds: [...passedSignalStopIds, triggered.id],
+        routeSurface: surfaceForRoute(route, stopProgress),
       });
       return;
     }
@@ -188,10 +210,15 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
         status: "arrived",
         signalStopRemainingMs: 0,
         activeSignalStop: null,
+        routeSurface: surfaceForRoute(route, 1),
       });
       return;
     }
-    set({ progress: next, currentPosition });
+    set({
+      progress: next,
+      currentPosition,
+      routeSurface: surfaceForRoute(route, next),
+    });
   },
 }));
 

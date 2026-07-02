@@ -19,6 +19,8 @@ export function getRouteLengthKm(route: RouteResponse): number {
 
 /** 50m 초과 구간에 중간 정점 삽입 — probe·라인 고도 샘플 밀도 확보 */
 export const ROUTE_TESSELLATE_MAX_SEGMENT_M = 50;
+/** 3D 경로 probe용 — tessellation 간격 (클수록 raycast 적음) */
+export const ROUTE_PROBE_TESSELLATE_MAX_M = 80;
 
 /**
  * 경로 polyline tessellation — Turf `along`으로 polyline을 따라 샘플링.

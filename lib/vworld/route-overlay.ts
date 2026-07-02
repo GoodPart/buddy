@@ -5,10 +5,15 @@ import { getRoutePathDistanceM } from "@/lib/tmap/guidance";
 import { getRouteCoords } from "@/lib/tmap/route-line";
 import type { DrivingSurfaceState } from "./surface-probe";
 import {
-  buildRouteSurfacePath,
+  buildRouteSurfacePathAsync,
+  DrivingSurfaceHeightTracker,
   drivingSurfaceHeight,
+  getCachedRouteSurface,
   resetDrivingSurfaceForRoute,
   ROUTE_SURFACE_Z_BIAS_M,
+  sampleRouteEndpointHeights,
+  storeCachedRouteSurface,
+  type RouteSurfaceCacheEntry,
 } from "./surface-probe";
 import { sliceCoordsForLinkSegment } from "@/lib/tmap/route-traffic-slice";
 import {
@@ -32,6 +37,44 @@ const ROUTE_ID = "buddy-route";
 const START_ID = "buddy-start";
 const END_ID = "buddy-end";
 const VEHICLE_ID = "buddy-vehicle";
+
+/** 3D LineStringZ — 미터 단위 (2D는 px) */
+const ROUTE_LINE_WIDTH_M = 5;
+const ROUTE_HALO_ID = "buddy-route-halo";
+const ROUTE_HALO_MIN_M = 14;
+const ROUTE_HALO_MAX_M = 36;
+
+export type RouteLineWidthMode = "overview" | "chase";
+
+export function routeDisplayModeFromStatus(
+  status: "idle" | "ready" | "running" | "paused" | "arrived"
+): RouteLineWidthMode {
+  return status === "running" || status === "paused" ? "chase" : "overview";
+}
+
+/** overview 전용 — 주행선(5m) 아래 halo */
+export function computeRouteHaloWidthM(route: RouteResponse): number {
+  const b = route.bounds;
+  const span = Math.max(b.maxLng - b.minLng, b.maxLat - b.minLat);
+  const altM = Math.max(800, span * 111_000 * 1.2);
+  return Math.min(
+    ROUTE_HALO_MAX_M,
+    Math.max(ROUTE_HALO_MIN_M, altM * 0.01)
+  );
+}
+
+/** @deprecated chase=5m 고정, overview=halo — 호환용 */
+export function computeRouteLineWidthM(
+  route: RouteResponse,
+  mode: RouteLineWidthMode
+): number {
+  return mode === "chase" ? ROUTE_LINE_WIDTH_M : computeRouteHaloWidthM(route);
+}
+
+type RouteHaloSegment = {
+  coords: [number, number][];
+  heights: number[];
+};
 
 type VWorldGeometryInstance = VWorldGeometry & {
   getId?: () => string;
@@ -120,7 +163,11 @@ function pointStyle(ol: OlNamespace, color: string, radius = 8) {
 
 export class VWorldRouteOverlay {
   private staticGeometries: VWorldGeometryInstance[] = [];
+  private routeHaloGeometries: VWorldGeometryInstance[] = [];
+  private lastRouteHaloData: RouteHaloSegment[] = [];
+  private routeDisplayMode: RouteLineWidthMode = "overview";
   private vehicleModelOverlay = new VehicleModelOverlay();
+  private routeDrawGeneration = 0;
   private olRouteLayer: OlVectorLayer | null = null;
   private olVehicleLayer: OlVectorLayer | null = null;
   private olVehicleFeature: {
@@ -133,10 +180,19 @@ export class VWorldRouteOverlay {
       removeGeometry(geometry);
     }
     this.staticGeometries = [];
+    this.clearRouteHalo();
+    this.lastRouteHaloData = [];
 
     if (!opts?.preserveVehicle) {
       this.vehicleModelOverlay.reset();
     }
+  }
+
+  private clearRouteHalo() {
+    for (const geometry of this.routeHaloGeometries) {
+      removeGeometry(geometry);
+    }
+    this.routeHaloGeometries = [];
   }
 
   clear2D(map2d: VWorldOlMap) {
@@ -202,59 +258,138 @@ export class VWorldRouteOverlay {
     line.setId?.(id);
     line.setFillColor?.(new vw.Color(r, g, b, 255));
     line.setOutLineColor?.(new vw.Color(255, 255, 255, 255));
-    line.setWidth?.(5);
+    line.setWidth?.(ROUTE_LINE_WIDTH_M);
     this.addStatic(line);
   }
 
-  drawRoute3D(vw: VWorldNamespace, map: VWorldMapInstance, route: RouteResponse) {
-    this.clear3D(map, { preserveVehicle: true });
-
-    const coords = getRouteCoords(route);
-    if (coords.length < 2 || (!vw.geom?.LineStringZ && !vw.geom?.LineString)) return;
-
-    resetDrivingSurfaceForRoute();
-    const elevatedSegments = buildElevatedSegments(
-      route.guidances,
-      getRoutePathDistanceM(route)
+  private addRouteHaloLine3D(
+    vw: VWorldNamespace,
+    id: string,
+    segCoords: [number, number][],
+    heights: number[],
+    widthM: number
+  ) {
+    const zCoords = segCoords.map(
+      ([lng, lat], i) =>
+        new vw.CoordZ(lng, lat, heights[i] + ROUTE_SURFACE_Z_BIAS_M) as VWorldCoordZ
     );
-    drivingSurfaceHeight.setElevatedSegments(elevatedSegments);
+    const collection = new vw.Collection(zCoords);
 
-    const fullPath = buildRouteSurfacePath(coords, elevatedSegments);
+    const line =
+      vw.geom?.LineStringZ != null
+        ? new vw.geom.LineStringZ(collection)
+        : vw.geom?.LineString != null
+          ? new vw.geom.LineString(collection)
+          : null;
+    if (!line) return;
+
+    line.setId?.(id);
+    line.setFillColor?.(new vw.Color(37, 99, 235, 140));
+    line.setOutLineColor?.(new vw.Color(255, 255, 255, 180));
+    line.setWidth?.(widthM);
+    line.create();
+    this.routeHaloGeometries.push(line);
+  }
+
+  private buildRouteHalo(
+    vw: VWorldNamespace,
+    route: RouteResponse,
+    segments: RouteHaloSegment[]
+  ) {
+    this.clearRouteHalo();
+    if (!segments.length) return;
+
+    const widthM = computeRouteHaloWidthM(route);
+    segments.forEach((seg, i) => {
+      if (seg.coords.length < 2 || seg.heights.length !== seg.coords.length) return;
+      this.addRouteHaloLine3D(
+        vw,
+        `${ROUTE_HALO_ID}-${i}`,
+        seg.coords,
+        seg.heights,
+        widthM
+      );
+    });
+  }
+
+  private syncRouteHalo(vw: VWorldNamespace, route: RouteResponse) {
+    if (this.routeDisplayMode !== "overview") {
+      this.clearRouteHalo();
+      return;
+    }
+    this.buildRouteHalo(vw, route, this.lastRouteHaloData);
+  }
+
+  /** overview=halo 표시, chase=halo 제거 (주행선 5m 유지) */
+  setRouteDisplayMode(
+    vw: VWorldNamespace,
+    route: RouteResponse,
+    mode: RouteLineWidthMode
+  ) {
+    this.routeDisplayMode = mode;
+    this.syncRouteHalo(vw, route);
+  }
+
+  drawRoute3D(
+    vw: VWorldNamespace,
+    map: VWorldMapInstance,
+    route: RouteResponse,
+    displayMode: RouteLineWidthMode = "overview"
+  ) {
+    void this.drawRoute3DAsync(vw, map, route, displayMode);
+  }
+
+  private finishRoute3DDraw(
+    vw: VWorldNamespace,
+    route: RouteResponse,
+    lines: RouteSurfaceCacheEntry["lines"]
+  ) {
+    this.lastRouteHaloData = lines.map((line) => ({
+      coords: line.coords,
+      heights: line.heights,
+    }));
+    this.syncRouteHalo(vw, route);
+  }
+
+  private drawMainRouteLines(
+    vw: VWorldNamespace,
+    lines: RouteSurfaceCacheEntry["lines"]
+  ) {
+    for (const line of lines) {
+      this.addRouteLine3D(
+        vw,
+        line.id,
+        line.coords,
+        line.heights,
+        line.r,
+        line.g,
+        line.b
+      );
+    }
+  }
+
+  private applyRouteSurfaceCache(
+    vw: VWorldNamespace,
+    route: RouteResponse,
+    cached: RouteSurfaceCacheEntry
+  ) {
+    const coords = getRouteCoords(route);
     const [startLng, startLat] = coords[0];
     const [endLng, endLat] = coords[coords.length - 1];
 
-    if (route.linkSegments.length > 0) {
-      for (let i = 0; i < route.linkSegments.length; i++) {
-        const seg = route.linkSegments[i];
-        const segCoords = sliceCoordsForLinkSegment(route, seg);
-        if (segCoords.length < 2) continue;
-
-        const { coords: lineCoords, heights } = buildRouteSurfacePath(
-          segCoords,
-          elevatedSegments,
-          seg.distanceStartM
-        );
-        const { r, g, b } = congestionToRgb(seg.congestionLevel);
-        this.addRouteLine3D(vw, `${ROUTE_ID}-${i}`, lineCoords, heights, r, g, b);
-      }
-    } else {
-      this.addRouteLine3D(
-        vw,
-        ROUTE_ID,
-        fullPath.coords,
-        fullPath.heights,
-        37,
-        99,
-        235
-      );
-    }
+    this.lastRouteHaloData = cached.lines.map((line) => ({
+      coords: line.coords,
+      heights: line.heights,
+    }));
+    this.syncRouteHalo(vw, route);
+    this.drawMainRouteLines(vw, cached.lines);
 
     this.addPoint3D(
       vw,
       START_ID,
       startLng,
       startLat,
-      fullPath.heights[0] + ROUTE_SURFACE_Z_BIAS_M,
+      cached.startH + ROUTE_SURFACE_Z_BIAS_M,
       0,
       255,
       0
@@ -264,11 +399,144 @@ export class VWorldRouteOverlay {
       END_ID,
       endLng,
       endLat,
-      fullPath.heights[fullPath.heights.length - 1] + ROUTE_SURFACE_Z_BIAS_M,
+      cached.endH + ROUTE_SURFACE_Z_BIAS_M,
       255,
       0,
       0
     );
+  }
+
+  async drawRoute3DAsync(
+    vw: VWorldNamespace,
+    map: VWorldMapInstance,
+    route: RouteResponse,
+    displayMode: RouteLineWidthMode = "overview"
+  ) {
+    const generation = ++this.routeDrawGeneration;
+    const isStale = () => generation !== this.routeDrawGeneration;
+
+    this.clear3D(map, { preserveVehicle: true });
+    this.routeDisplayMode = displayMode;
+
+    const coords = getRouteCoords(route);
+    if (coords.length < 2 || (!vw.geom?.LineStringZ && !vw.geom?.LineString)) {
+      return;
+    }
+
+    resetDrivingSurfaceForRoute();
+    const elevatedSegments = buildElevatedSegments(
+      route.guidances,
+      getRoutePathDistanceM(route)
+    );
+    drivingSurfaceHeight.setElevatedSegments(elevatedSegments);
+
+    const cached = getCachedRouteSurface(route);
+    if (cached) {
+      this.applyRouteSurfaceCache(vw, route, cached);
+      return;
+    }
+
+    const pathDistM = getRoutePathDistanceM(route);
+    const [startLng, startLat] = coords[0];
+    const [endLng, endLat] = coords[coords.length - 1];
+
+    const lines: RouteSurfaceCacheEntry["lines"] = [];
+    let startH = 0;
+    let endH = 0;
+
+    const routeBaker = new DrivingSurfaceHeightTracker();
+    routeBaker.setElevatedSegments(elevatedSegments);
+
+    if (route.linkSegments.length > 0) {
+      ({ startH, endH } = sampleRouteEndpointHeights(
+        [startLng, startLat],
+        [endLng, endLat],
+        pathDistM,
+        elevatedSegments,
+        routeBaker
+      ));
+
+      for (let i = 0; i < route.linkSegments.length; i++) {
+        if (isStale()) return;
+
+        const seg = route.linkSegments[i];
+        const segCoords = sliceCoordsForLinkSegment(route, seg);
+        if (segCoords.length < 2) continue;
+
+        const { coords: lineCoords, heights } = await buildRouteSurfacePathAsync(
+          segCoords,
+          elevatedSegments,
+          seg.distanceStartM,
+          { baker: routeBaker, shouldCancel: isStale }
+        );
+        if (isStale() || heights.length !== lineCoords.length) return;
+
+        const { r, g, b } = congestionToRgb(seg.congestionLevel);
+        lines.push({
+          id: `${ROUTE_ID}-${i}`,
+          coords: lineCoords,
+          heights,
+          r,
+          g,
+          b,
+        });
+      }
+    } else {
+      const path = await buildRouteSurfacePathAsync(
+        coords,
+        elevatedSegments,
+        0,
+        { baker: routeBaker, shouldCancel: isStale }
+      );
+      if (
+        isStale() ||
+        path.heights.length !== path.coords.length ||
+        path.heights.length === 0
+      ) {
+        return;
+      }
+
+      startH = path.heights[0];
+      endH = path.heights[path.heights.length - 1];
+      lines.push({
+        id: ROUTE_ID,
+        coords: path.coords,
+        heights: path.heights,
+        r: 37,
+        g: 99,
+        b: 235,
+      });
+    }
+
+    if (isStale()) return;
+
+    this.finishRoute3DDraw(vw, route, lines);
+    this.drawMainRouteLines(vw, lines);
+
+    if (isStale()) return;
+
+    this.addPoint3D(
+      vw,
+      START_ID,
+      startLng,
+      startLat,
+      startH + ROUTE_SURFACE_Z_BIAS_M,
+      0,
+      255,
+      0
+    );
+    this.addPoint3D(
+      vw,
+      END_ID,
+      endLng,
+      endLat,
+      endH + ROUTE_SURFACE_Z_BIAS_M,
+      255,
+      0,
+      0
+    );
+
+    storeCachedRouteSurface(route, { lines, startH, endH });
   }
 
   drawRoute2D(map2d: VWorldOlMap, route: RouteResponse) {
@@ -349,14 +617,15 @@ export class VWorldRouteOverlay {
     map: VWorldMapInstance,
     map2d: VWorldOlMap | null,
     route: RouteResponse,
-    mode: MapDisplayMode
+    mode: MapDisplayMode,
+    displayMode: RouteLineWidthMode = "overview"
   ) {
     if (mode === "2d") {
       if (!map2d) return;
       this.drawRoute2D(map2d, route);
       return;
     }
-    this.drawRoute3D(vw, map, route);
+    this.drawRoute3D(vw, map, route, displayMode);
   }
 
   private addPoint3D(

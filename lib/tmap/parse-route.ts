@@ -2,6 +2,7 @@ import { haversineMeters, buildCumulativeDistances } from "./geo";
 import { formatTurnType } from "./guidance";
 import { buildPathCoordinates, computePathDistance } from "./route-path";
 import { parseTrafficCongestion } from "./traffic-congestion";
+import { buildUndergroundSegments } from "./underground-segments";
 import type { RouteGuidance, RouteLinkSegment, RouteResponse } from "./types";
 
 type FeatureProps = {
@@ -261,6 +262,7 @@ export function parseTmapRoute(data: TmapRouteJson): RouteResponse {
   const pathDistance = computePathDistance(pathCoordinates);
   const guidances = parseGuidances(data, pathCoordinates);
   const linkSegments = parseLinkSegments(data, pathDistance);
+  const undergroundSegments = buildUndergroundSegments(guidances, pathDistance);
   const averageSpeedKmh =
     totalTime > 0 ? (totalDistance / totalTime) * 3.6 : 0;
 
@@ -282,5 +284,6 @@ export function parseTmapRoute(data: TmapRouteJson): RouteResponse {
       maxLat: Math.max(...lats),
     },
     guidances,
+    undergroundSegments,
   };
 }

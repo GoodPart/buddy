@@ -9,6 +9,7 @@ import {
   resolveGuidanceAtProgress,
   type NavPhase,
 } from "@/lib/tmap/guidance";
+import { formatRouteSurfaceBadge } from "@/lib/tmap/route-surface";
 import {
   getSegmentCongestion,
   getSegmentSpeedKmh,
@@ -45,6 +46,7 @@ export default function RouteGuidanceOverlay() {
     (s) => s.signalStopRemainingMs
   );
   const activeSignalStop = useSimulationStore((s) => s.activeSignalStop);
+  const routeSurface = useSimulationStore((s) => s.routeSurface);
 
   if (!route || route.guidances.length === 0) return null;
 
@@ -75,10 +77,13 @@ export default function RouteGuidanceOverlay() {
   const segmentSpeedKmh = getSegmentSpeedKmh(route, nav.traveledM);
   const segmentCongestion = getSegmentCongestion(route, nav.traveledM);
   const showSpeed = status === "running" || status === "paused";
+  const surfaceBadge = formatRouteSurfaceBadge(routeSurface, formatNavDistance);
 
   const panelClass = atSignal
     ? "border-red-400/70 bg-gray-950/95"
-    : PHASE_PANEL[phase];
+    : routeSurface.phase === "inside"
+      ? "border-violet-400/70 bg-gray-950/95"
+      : PHASE_PANEL[phase];
 
   return (
     <div className="absolute top-2 left-2 right-14 z-10 pointer-events-none">
@@ -91,6 +96,10 @@ export default function RouteGuidanceOverlay() {
             {activeSignalStop
               ? ` · ${activeSignalStop.label}`
               : ""}
+          </p>
+        ) : surfaceBadge ? (
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-violet-300">
+            {surfaceBadge}
           </p>
         ) : segmentCongestion != null && segmentCongestion > 0 ? (
           <p
