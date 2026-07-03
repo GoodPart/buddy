@@ -2,6 +2,8 @@
 
 import {
   buildNavInstruction,
+  getGuidanceDistanceM,
+  isFinalApproach,
   type NavGuidanceState,
 } from "@/lib/tmap/guidance";
 
@@ -55,12 +57,12 @@ export function formatNavDistanceForTts(meters: number): string {
 export function buildNavInstructionForTts(
   nav: NavGuidanceState
 ): { primary: string; secondary: string | null } {
-  const { upcoming, distanceToUpcomingM, phase } = nav;
+  const { upcoming, phase } = nav;
   if (!upcoming) {
     return { primary: "안내가 없습니다", secondary: null };
   }
 
-  if (phase === "arrived" || upcoming.turnType === 201) {
+  if (phase === "arrived") {
     const place = upcoming.name ?? upcoming.description;
     return {
       primary: "목적지에 도착했습니다",
@@ -68,11 +70,12 @@ export function buildNavInstructionForTts(
     };
   }
 
+  const distM = getGuidanceDistanceM(nav);
   const road =
     upcoming.nextRoadName ?? upcoming.name ?? upcoming.description;
-  const action = upcoming.turnLabel;
+  const action = isFinalApproach(nav) ? "도착" : upcoming.turnLabel;
 
-  if (distanceToUpcomingM <= 50) {
+  if (distM <= 50) {
     return {
       primary: `잠시후 ${action}입니다`,
       secondary: road ? `${road} 방면입니다` : null,
@@ -80,7 +83,7 @@ export function buildNavInstructionForTts(
   }
 
   return {
-    primary: `${formatNavDistanceForTts(distanceToUpcomingM)} 후 ${action}입니다`,
+    primary: `${formatNavDistanceForTts(distM)} 후 ${action}입니다`,
     secondary: road ? `${road}로 진입합니다` : null,
   };
 }

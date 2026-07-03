@@ -55,11 +55,15 @@ export type NavGuidanceState = {
   upcoming: RouteGuidance | null;
   thenNext: RouteGuidance | null;
   distanceToUpcomingM: number;
+  /** 경로 끝까지 잔여 거리(m) — 실제 도착 판정 기준 */
+  remainingToDestinationM: number;
   phase: NavPhase;
   traveledM: number;
 };
 
 const PASSED_MANEUVER_M = 25;
+/** pathDistance 기준 도착 임계 (m) */
+const ARRIVAL_THRESHOLD_M = 30;
 
 export function formatTurnType(turnType?: number): string {
   if (turnType == null) return "안내";
@@ -115,6 +119,28 @@ function getNavManeuvers(guidances: RouteGuidance[]): RouteGuidance[] {
   return guidances.filter((g) => g.turnType !== 200);
 }
 
+/** 마지막 구간 — turnType 201 안내점은 path 끝보다 앞에 있을 수 있음 */
+export function isFinalApproach(nav: Pick<
+  NavGuidanceState,
+  "upcoming" | "thenNext"
+>): boolean {
+  if (!nav.upcoming) return false;
+  if (nav.upcoming.turnType === 201) return true;
+  return nav.thenNext == null;
+}
+
+/** HUD·TTS 거리 — 마지막 구간은 목적지까지 잔여 거리 사용 */
+export function getGuidanceDistanceM(
+  nav: Pick<
+    NavGuidanceState,
+    "upcoming" | "thenNext" | "distanceToUpcomingM" | "remainingToDestinationM"
+  >
+): number {
+  return isFinalApproach(nav)
+    ? nav.remainingToDestinationM
+    : nav.distanceToUpcomingM;
+}
+
 function resolvePhase(
   distanceToUpcomingM: number,
   arrived: boolean
@@ -139,13 +165,15 @@ export function resolveGuidanceAtDistance(
       upcoming: null,
       thenNext: null,
       distanceToUpcomingM: 0,
+      remainingToDestinationM: 0,
       phase: "arrived",
       traveledM: 0,
     };
   }
 
   const clamped = Math.min(Math.max(0, traveledM), pathDist);
-  const arrived = clamped >= pathDist - 10;
+  const remainingToDestinationM = Math.max(0, pathDist - clamped);
+  const arrived = remainingToDestinationM <= ARRIVAL_THRESHOLD_M;
 
   let upcomingIdx = maneuvers.findIndex(
     (g) => g.distanceAlongRoute > clamped + PASSED_MANEUVER_M
@@ -160,11 +188,19 @@ export function resolveGuidanceAtDistance(
     ? Math.max(0, upcoming.distanceAlongRoute - clamped)
     : 0;
 
+  const navSlice = {
+    upcoming,
+    thenNext,
+    distanceToUpcomingM,
+    remainingToDestinationM,
+  };
+
   return {
     upcoming,
     thenNext,
     distanceToUpcomingM,
-    phase: resolvePhase(distanceToUpcomingM, arrived),
+    remainingToDestinationM,
+    phase: resolvePhase(getGuidanceDistanceM(navSlice), arrived),
     traveledM: clamped,
   };
 }
@@ -222,21 +258,22 @@ export function formatNavDistance(meters: number): string {
 export function buildNavInstruction(
   nav: NavGuidanceState
 ): { primary: string; secondary: string | null } {
-  const { upcoming, distanceToUpcomingM, phase } = nav;
+  const { upcoming, phase } = nav;
   if (!upcoming) {
     return { primary: "안내 없음", secondary: null };
   }
 
-  if (phase === "arrived" || upcoming.turnType === 201) {
+  if (phase === "arrived") {
     return {
       primary: "목적지에 도착했습니다",
       secondary: upcoming.name ?? upcoming.description,
     };
   }
 
+  const distM = getGuidanceDistanceM(nav);
   const road =
     upcoming.nextRoadName ?? upcoming.name ?? upcoming.description;
-  const action = upcoming.turnLabel;
+  const action = isFinalApproach(nav) ? "도착" : upcoming.turnLabel;
 
   if (phase === "now") {
     return {
@@ -246,7 +283,7 @@ export function buildNavInstruction(
   }
 
   return {
-    primary: `${formatNavDistance(distanceToUpcomingM)} 후 ${action}`,
+    primary: `${formatNavDistance(distM)} 후 ${action}`,
     secondary: road ? `${road} 진입` : upcoming.description,
   };
 }

@@ -89,19 +89,10 @@ export function buildNavHudSnapshot(input: NavHudSyncInput): NavHudSnapshot {
 
   const surfaceBadge = formatRouteSurfaceBadge(routeSurface, formatNavDistance);
 
-  if (status === "arrived" || !upcoming) {
+  if (status === "arrived" || !upcoming || nav.phase === "arrived") {
     return {
       primary: "목적지 도착",
       secondary: input.destination?.name ?? null,
-      badge: surfaceBadge,
-      iconKind: "arrive",
-    };
-  }
-
-  if (upcoming.turnType === 201) {
-    return {
-      primary: "목적지",
-      secondary: upcoming.name ?? upcoming.description,
       badge: surfaceBadge,
       iconKind: "arrive",
     };

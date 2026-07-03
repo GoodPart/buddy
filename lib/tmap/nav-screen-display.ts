@@ -1,6 +1,7 @@
 import {
   buildNavInstruction,
   formatNavDistance,
+  getGuidanceDistanceM,
   getTurnIconKind,
   resolveGuidanceAtProgress,
   type NavGuidanceState,
@@ -60,16 +61,14 @@ export function resolveNavScreenDisplay(
   });
 
   const nav = resolveGuidanceAtProgress(route, progress);
-  const { upcoming, distanceToUpcomingM, phase } = nav;
+  const { upcoming, phase } = nav;
   if (!upcoming) return null;
 
   const { primary, secondary } = buildNavInstruction(nav);
   const iconKind = getTurnIconKind(upcoming.turnType);
+  const guidanceDistM = getGuidanceDistanceM(nav);
   const showDistance =
-    status !== "arrived" &&
-    phase !== "now" &&
-    phase !== "arrived" &&
-    upcoming.turnType !== 201;
+    status !== "arrived" && phase !== "now" && phase !== "arrived";
 
   const surfaceBadge = formatRouteSurfaceBadge(routeSurface, formatNavDistance);
 
@@ -83,7 +82,7 @@ export function resolveNavScreenDisplay(
     secondary,
     surfaceBadge,
     showDistance,
-    distanceLabel: showDistance ? formatNavDistance(distanceToUpcomingM) : null,
+    distanceLabel: showDistance ? formatNavDistance(guidanceDistM) : null,
     iconKind,
     signalStopId: atSignal ? (input.activeSignalStop?.id ?? null) : null,
     signalLabel: atSignal ? (input.activeSignalStop?.label ?? null) : null,
@@ -92,18 +91,44 @@ export function resolveNavScreenDisplay(
 
 /**
  * 네비 음성 안내 구간 — 1km → 500m → 100m → 잠시후(50m 이하)
+ * rank가 클수록 멀리, 작을수록 가까움 (역행 안내 방지용)
  */
+export const NAV_TTS_MILESTONE_RANK: Record<string, number> = {
+  ahead: 5,
+  "1000": 4,
+  "500": 3,
+  "100": 2,
+  soon: 1,
+  arrived: 0,
+};
+
 export function resolveNavTtsMilestone(
   nav: NavGuidanceState,
   phase: NavPhase
 ): string {
   if (phase === "arrived") return "arrived";
-  const d = nav.distanceToUpcomingM;
+  const d = getGuidanceDistanceM(nav);
   if (d <= 50) return "soon";
   if (d <= 100) return "100";
   if (d <= 500) return "500";
   if (d <= 1000) return "1000";
   return "ahead";
+}
+
+export function getNavTtsMilestoneRank(milestone: string): number {
+  return NAV_TTS_MILESTONE_RANK[milestone] ?? -1;
+}
+
+/** 같은 매뉴벼에서 멀리 있는 구간(100m)이 잠시후 뒤에 나오지 않도록 */
+export function shouldAdvanceNavTtsMilestone(
+  maneuverIndex: number,
+  milestone: string,
+  last: { maneuverIndex: number; rank: number } | null
+): boolean {
+  const rank = getNavTtsMilestoneRank(milestone);
+  if (rank < 0) return true;
+  if (!last || last.maneuverIndex !== maneuverIndex) return true;
+  return rank < last.rank;
 }
 
 /** TTS 재생 트리거 — 매뉴벼·거리 구간·지하 상태 (신호·연속 거리 갱신 제외) */

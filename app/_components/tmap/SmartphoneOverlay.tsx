@@ -59,7 +59,7 @@ export default function SmartphoneOverlay() {
           <button className="absolute top-[-50px] left-[50%] -translate-x-1/2 z-10 bg-gray-900 text-white px-4 py-2 rounded-md hover:bg-gray-800 z-100" onClick={toggleSmartphone}>Smartphone</button>
           <button
             type="button"
-            className="absolute top-[-50px] left-[70%] z-10 flex h-10 w-10 items-center justify-center rounded-full bg-gray-900 text-white hover:bg-gray-800 z-100"
+            className={`absolute top-[-50px] left-[70%] z-10 flex h-10 w-10 items-center justify-center rounded-full bg-gray-900 text-white hover:bg-gray-800 z-100 transition-all duration-400 transition-transform cubic-bezier(0.68, -0.6, 0.32, 1.6) ${isRadioPlaying ? "scale-110" : "scale-0"}`}
             aria-label={isRadioPlaying ? "라디오 재생 중" : "라디오 대기"}
             onClick={() => {
               if(isSmartphoneOpen) {
@@ -73,7 +73,9 @@ export default function SmartphoneOverlay() {
           </button>
         </div>
         
-        <button type="button" className="absolute top-[50px] left-2 z-10 bg-gray-900 text-white px-4 py-2 rounded-md hover:bg-gray-800 z-100" onClick={() => setCurrentScreen("main")}>⬅</button>
+        {
+          currentScreen !== "main" && isSmartphoneOpen && (<button type="button" className="absolute top-[-50px] left-[15%] z-10 bg-gray-900 text-white px-4 py-2 rounded-md hover:bg-gray-800 z-100" onClick={() => setCurrentScreen("main")}>⬅</button>)
+        }
         <div>
           {currentScreen === "main" && <SmartphoneScreenMain />}
           {currentScreen === "map" && <SmartphoneScreenMap />}
