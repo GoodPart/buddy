@@ -70,7 +70,7 @@ function getWs3d(): Ws3dRuntime | null {
   return (window as unknown as { ws3d?: Ws3dRuntime }).ws3d ?? null;
 }
 
-function setCameraView(
+export function setCameraView(
   lng: number,
   lat: number,
   altitude: number,

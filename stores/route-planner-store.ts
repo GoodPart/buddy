@@ -6,6 +6,7 @@ import {
 } from "@/lib/tmap/plan-route";
 import type { Place } from "@/lib/tmap/types";
 import { useSimulationStore } from "./simulation-store";
+import { useMapPreviewStore } from "./map-preview-store";
 
 type RoutePlannerState = {
   startQuery: string;
@@ -37,8 +38,22 @@ export const useRoutePlannerStore = create<RoutePlannerState>((set, get) => ({
 
   setStartQuery: (startQuery) => set({ startQuery }),
   setEndQuery: (endQuery) => set({ endQuery }),
-  setStartPlace: (startPlace) => set({ startPlace }),
-  setEndPlace: (endPlace) => set({ endPlace }),
+  setStartPlace: (startPlace) => {
+    set({ startPlace });
+    if (startPlace) {
+      useMapPreviewStore.getState().requestPreview("departure", startPlace);
+    } else {
+      useMapPreviewStore.getState().stopPreview();
+    }
+  },
+  setEndPlace: (endPlace) => {
+    set({ endPlace });
+    if (endPlace) {
+      useMapPreviewStore.getState().requestPreview("destination", endPlace);
+    } else {
+      useMapPreviewStore.getState().stopPreview();
+    }
+  },
   clearError: () => set({ error: "" }),
 
   fetchRoute: async () => {
@@ -52,6 +67,7 @@ export const useRoutePlannerStore = create<RoutePlannerState>((set, get) => ({
 
     try {
       const route = await fetchTmapRoute(startPlace, endPlace);
+      useMapPreviewStore.getState().stopPreview();
       const sim = useSimulationStore.getState();
       sim.setDeparture(startPlace);
       sim.setDestination(endPlace);
@@ -88,6 +104,8 @@ export const useRoutePlannerStore = create<RoutePlannerState>((set, get) => ({
       };
 
       const route = await fetchTmapRoute(startPlace, endPlace);
+
+      useMapPreviewStore.getState().stopPreview();
 
       set({
         startQuery: "내 위치",

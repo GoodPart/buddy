@@ -22,6 +22,7 @@ import {
   type NavHudSnapshot,
 } from "@/lib/tmap/nav-hud-snapshot";
 import { drivingSurfaceHeight } from "@/lib/vworld/surface-probe";
+import { useMapPreviewStore } from "./map-preview-store";
 
 export type SimStatus = "idle" | "ready" | "running" | "paused" | "arrived";
 
@@ -141,6 +142,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
   start: () => {
     const { route, status } = get();
     if (!route || status !== "ready") return;
+    useMapPreviewStore.getState().stopPreview();
     set({
       status: "running",
       pausedAt: null,

@@ -28,7 +28,7 @@ import {
   routeDisplayModeFromStatus,
   VWorldRouteOverlay,
 } from "@/lib/vworld/route-overlay";
-import { useMapModeStore, useSimulationStore } from "@/stores";
+import { useMapModeStore, useSimulationStore, useMapPreviewStore } from "@/stores";
 import { getRoutePathDistanceM } from "@/lib/tmap/guidance";
 import { installSurfaceProbeDebugTools, registerVehiclePositionProvider } from "@/lib/vworld/surface-probe-debug";
 import { drivingSurfaceHeight } from "@/lib/vworld/surface-probe";
@@ -37,6 +37,7 @@ import RouteGuidanceOverlay from "@/app/_components/tmap/RouteGuidanceOverlay";
 import RouteControls from "@/app/_components/tmap/RouteControls";
 import RadioAudioHost from "@/app/_components/tmap/RadioAudioHost";
 import NavTtsHost from "@/app/_components/tmap/NavTtsHost";
+import PlacePreviewHost from "@/app/_components/tmap/PlacePreviewHost";
 import "./vworld-map.css";
 import SmartphoneOverlay from "./SmartphoneOverlay";
 
@@ -139,12 +140,21 @@ export default function VWorldCanvas() {
       const controller = controllerRef.current;
       if (!controller) return;
 
+      useMapPreviewStore.getState().stopPreview();
       myLocationRef.current = { lng, lat };
       const mode = useMapModeStore.getState().mode;
       panToLocation(controller, mode, lng, lat);
       syncMyLocationMarker();
     },
     [syncMyLocationMarker]
+  );
+
+  const getPreviewRuntime = useCallback(
+    () => ({
+      vw: vwRef.current,
+      controller: controllerRef.current,
+    }),
+    []
   );
 
   useEffect(() => {
@@ -204,6 +214,10 @@ export default function VWorldCanvas() {
 
     simRef.current.mapMode = mapMode;
     controller.setMode(toVWorldMapMode(mapMode));
+
+    if (mapMode === "2d") {
+      useMapPreviewStore.getState().stopPreview();
+    }
 
     window.setTimeout(() => {
       resizeMaps(controller, mapMode);
@@ -445,6 +459,7 @@ export default function VWorldCanvas() {
       <SmartphoneOverlay />
       <RadioAudioHost />
       <NavTtsHost />
+      <PlacePreviewHost ready={ready} getRuntime={getPreviewRuntime} />
       <div ref={containerRef} className="absolute inset-0 touch-none">
         <div id={MAP_CONTAINER_ID} className="h-full w-full [&_*]:box-border" />
       </div>

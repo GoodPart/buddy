@@ -175,8 +175,9 @@ export function resolveGuidanceAtDistance(
   const remainingToDestinationM = Math.max(0, pathDist - clamped);
   const arrived = remainingToDestinationM <= ARRIVAL_THRESHOLD_M;
 
+  /** 아직 지나지 않은 첫 매뉴벼 — 신호 대기(교차로 15m 전)에서도 현재 회전 유지 */
   let upcomingIdx = maneuvers.findIndex(
-    (g) => g.distanceAlongRoute > clamped + PASSED_MANEUVER_M
+    (g) => clamped <= g.distanceAlongRoute + PASSED_MANEUVER_M
   );
   if (upcomingIdx === -1) {
     upcomingIdx = maneuvers.length - 1;
